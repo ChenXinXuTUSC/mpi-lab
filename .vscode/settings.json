@@ -1,0 +1,16 @@
+{
+    "workbench.colorCustomizations": {
+		"editor.selectionHighlightBorder": "#f4f4f456",
+        "editor.wordHighlightBorder": "#f4f4f456",
+        "editor.lineHighlightBorder": "#f4f4f456",
+        "editor.findMatchHighlightBorder": "#f4f4f456"
+    },
+    "files.associations": {
+        "cmath": "c",
+        "math.h": "c",
+        "mpi.h": "c",
+        "common.h": "c",
+        "stdlib.h": "c"
+    },
+    "cmake.configureOnOpen": true
+}

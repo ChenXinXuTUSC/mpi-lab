@@ -1,0 +1,41 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug(launch)",
+            "type": "cppdbg",
+            "MIMode": "gdb",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "externalConsole": false,
+            "preLaunchTask": "build",
+
+            "environment": [],
+            "args": [],
+            "program": "${workspaceRoot}/build/Debug/bin/${fileBasenameNoExtension}"
+        },
+        {
+            "name": "Debug(attach)",
+            "type": "cppdbg",
+            "MIMode": "gdb",
+            "request": "attach",
+            "processId": "${command:pickProcess}",
+            "program": "${workspaceRoot}/build/mpisort"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "pickmpisort",
+            "type": "command",
+            "command": "shellCommand.execute",
+            "args": {
+                // "command": "sleep 1 & pgrep -fo \"^build/mpisort$\"",
+                "command": "echo hello",
+                "description": "select mpisort pid"
+            }
+        }
+    ]
+}

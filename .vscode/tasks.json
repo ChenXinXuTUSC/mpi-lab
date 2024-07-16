@@ -1,0 +1,87 @@
+{
+	"version": "2.0.0",
+	"options": {
+		"cwd": "${workspaceRoot}"
+	},
+	"tasks": [
+		{
+			"label": "CMake: Configure",
+			"type": "cmake",
+			"command": "configure",
+		},
+		{
+			"label": "CMake: Build",
+			"type": "cmake",
+			"command": "build",
+			"dependsOn": [
+				"CMake: Configure"
+			]
+		},
+		{
+			"label": "build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"dependsOn": [
+				"CMake: Build"
+			]
+		},
+		{
+			"label": "run",
+			"type": "shell",
+			"command": "nohup mpirun -np 4 build/mpisort > nohup.log 2>&1 &",
+			"dependsOn": [
+				"build"
+			]
+		}
+	]
+}
+
+
+
+
+// {
+// 	"version": "2.0.0",
+// 	"options": {
+// 		"cwd": "${workspaceFolder}"
+// 	},
+// 	"tasks": [
+// 		{
+// 			"label": "CMake: Configure",
+// 			"type": "cmake",
+// 			"command": "configure",
+// 			// "type": "shell",
+// 			// "command": "cmake -B build .",
+// 			"detail": "CMake template configure task"
+// 		},
+// 		{
+// 			"label": "CMake: Build",
+// 			"type": "cmake",
+// 			"command": "build",
+// 			// "type": "shell",
+// 			// "command": "cmake --build build",
+//             "dependsOn": [
+//                 "CMake: Configure"
+//             ]
+// 		},
+//         {
+//             "label": "CMake: Install",
+//             "type": "cmake",
+//             "command": "install",
+// 			// "type": "shell",
+// 			// "command": "cmake --build build --target install",
+//             "dependsOn": [
+//                 "CMake: Build"
+//             ]
+//         },
+// 		{
+// 			"label": "Build: All",
+// 			"group": "build",
+// 			"dependsOn": [
+// 				"CMake: Install"
+// 			]
+// 		}
+// 	]
+// }
+
