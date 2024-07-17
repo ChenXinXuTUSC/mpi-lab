@@ -2,7 +2,7 @@
 
 int main(int argc, char** argv)
 {
-    FILE* fp = fopen("10K.bin", "rb");
+    FILE* fp = fopen("data/10K.bin", "rb");
     if (fp == NULL)
     {
         perror("error open data bin");
@@ -18,7 +18,7 @@ int main(int argc, char** argv)
     }
 
     if (feof(fp))
-        printf("\n\nfinish reading data bin, total %E\n\n", (double)(cnt));
+        printf("\n\nfinish reading data bin, total %d\n\n", cnt);
     else
         fprintf(stderr, "error reading data bin\n");
 

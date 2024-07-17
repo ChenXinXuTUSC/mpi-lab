@@ -68,6 +68,11 @@ public:
         build_heap();
     }
 
+    uint size() const
+    {
+        return heap_size;
+    }
+
     void push(const element& ele)
     {
         heap_size++;

@@ -2,6 +2,7 @@ SET(
     test_src_list
 
     misc/reftest.cpp
+    misc/lessread.cpp
 )
 
 FOREACH(_src_file ${test_src_list})

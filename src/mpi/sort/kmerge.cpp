@@ -6,26 +6,34 @@
 template <typename T>
 bool read_ele_vec(
     const std::string& filepath,
-    const uint read_amt,
+    const uint ele_need,
+    const uint offset,
     std::vector<T>& data_vec
 )
 {
-    std::ifstream istrm(filepath, std::ios::binary);
-    if (istrm.is_open())
+    std::ifstream finput(filepath, std::ios::binary);
+    if (!finput.is_open())
     {
         fprintf(stderr, "failed to open data bin %s\n", filepath.c_str());
         return false;
     }
-
-    int read_cnt = 0;
-    T data_holder;
-    while (read_cnt < read_amt)
+    finput.seekg(offset * sizeof(T), std::ios::beg);
+    if (finput.fail())
     {
-        istrm.read(reinterpret_cast<char*>(&data_holder), sizeof(T));
-        data_vec.emplace_back(data_holder);
-        read_cnt++;
+        fprintf(stderr, "failed to seek to offset %u\n", offset);
+        return false;
     }
-    return read_cnt == read_amt;
+    // make sure data vector has enough space
+
+    data_vec.resize(ele_need);
+    finput.read(reinterpret_cast<char*>(data_vec.data()), ele_need * sizeof(T));
+    uint ele_read = finput.gcount() / sizeof(T);
+    if (ele_read < ele_need)
+        fprintf(stderr, "number of data %d read less than specified %d\n", ele_read, ele_need);
+    data_vec.resize(ele_read);
+    finput.close();
+
+    return ele_read == ele_need;
 }
 
 int main(int argc, char** argv)
@@ -41,8 +49,16 @@ int main(int argc, char** argv)
     heap<std::vector<int>, decltype(cmp)> ksegheap(cmp);
 
     std::vector<int> vec_holder;
-    while (read_ele_vec(filepath, 1024, vec_holder))
-        ksegheap.push(vec_holder);
+    bool toend = false;
+    do {
+        toend = read_ele_vec(filepath, 1024, 1024 * ksegheap.size(), vec_holder);
+        if (vec_holder.size())
+        {
+            ksegheap.push(vec_holder); // has valid data length
+            cout << "seg length: " << vec_holder.size() << " total: " << ksegheap.size() << " first: " << vec_holder.front() << endl;
+        }
+    } while (toend);
+
 
     return 0;
 }

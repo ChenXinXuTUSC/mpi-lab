@@ -10,7 +10,10 @@
         "math.h": "c",
         "mpi.h": "c",
         "common.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "iostream": "cpp",
+        "fstream": "cpp",
+        "istream": "cpp"
     },
     "cmake.configureOnOpen": true
 }
