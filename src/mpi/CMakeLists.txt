@@ -13,6 +13,8 @@ SET(
 
     sort/oddevensort.c
     sort/kmerge.cpp
+    sort/kmergef.cpp
+    sort/validate.c
 )
 
 FOREACH(_src_file ${mpi_src_list})

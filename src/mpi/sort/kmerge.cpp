@@ -11,13 +11,13 @@ bool read_ele_vec(
     std::vector<T>& data_vec
 )
 {
-    std::ifstream finput(filepath, std::ios::binary);
+    std::ifstream finput(filepath, std::ifstream::in | std::ifstream::binary);
     if (!finput.is_open())
     {
         fprintf(stderr, "failed to open data bin %s\n", filepath.c_str());
         return false;
     }
-    finput.seekg(offset * sizeof(T), std::ios::beg);
+    finput.seekg(offset * sizeof(T), std::ifstream::beg);
     if (finput.fail())
     {
         fprintf(stderr, "failed to seek to offset %u\n", offset);
@@ -40,25 +40,43 @@ int main(int argc, char** argv)
 {
     const std::string filepath = "data/10K.bin";
     
-    std::function<bool(const vector<int>&, const vector<int>&)> cmp = [](
-        const vector<int>& v1,
-        const vector<int>& v2
+    std::function<bool(const queue<int>&, const queue<int>&)> cmp = [](
+        const queue<int>& q1,
+        const queue<int>& q2
     ) {
-        return v1.front() < v2.front();
+        return q1.front() > q2.front(); // ascend heap, not descend heap
     };
-    heap<std::vector<int>, decltype(cmp)> ksegheap(cmp);
+    heap<std::queue<int>, decltype(cmp)> ksegheap(cmp);
 
+    // read in data and distribute to segments
     std::vector<int> vec_holder;
     bool toend = false;
     do {
         toend = read_ele_vec(filepath, 1024, 1024 * ksegheap.size(), vec_holder);
         if (vec_holder.size())
         {
-            ksegheap.push(vec_holder); // has valid data length
-            cout << "seg length: " << vec_holder.size() << " total: " << ksegheap.size() << " first: " << vec_holder.front() << endl;
+            sort(vec_holder.begin(), vec_holder.end());
+            queue<int> que_holder;
+            for (const int& num : vec_holder)
+                que_holder.push(num);
+            ksegheap.push(que_holder); // has valid data length
+            cout << "seg length: " << que_holder.size() << " total: " << ksegheap.size() << " first: " << que_holder.front() << endl;
         }
     } while (toend);
 
+    // sort sub-segments into a big one
+    std::ofstream foutput("data/sorted.bin", std::ios::out | std::ios::binary);
+    while (!ksegheap.empty())
+    {
+        int num = ksegheap.top().front();
+        foutput.write(reinterpret_cast<char*>(&num), sizeof(int));
+        auto que = ksegheap.top();
+        ksegheap.pop();
 
+        que.pop();
+        if (!que.empty())
+            ksegheap.push(que);
+    }
+    foutput.close();
     return 0;
 }

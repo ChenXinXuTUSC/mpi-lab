@@ -14,7 +14,7 @@ bool use_exp_G = false; // 2^30
 unsigned int num = 0;
 unsigned int epl = 0;
 
-void parse_opt(int argc, char** argv)
+void parse_args(int argc, char** argv)
 {
     extern char* optarg;
     extern int   optopt;
@@ -45,6 +45,7 @@ void parse_opt(int argc, char** argv)
                 fprintf(stderr, "Unknown option `-%c'.\n", optopt);
             else
                 fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
+            break;
         default:
             abort();
         }
@@ -67,10 +68,10 @@ void parse_opt(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
-    srand((unsigned int)time(NULL));
-
-    parse_opt(argc, argv);
+    parse_args(argc, argv);
     printf("N: %d, E: %E\n", num, (double)epl);
+
+    srand((unsigned int)time(NULL));
 
     const char* exp_str = "";
     if (use_exp_M)  exp_str = "M";

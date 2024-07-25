@@ -14,7 +14,7 @@ int main(int argc, char** argv)
     finput.read(reinterpret_cast<char*>(buffer.data()), byte_need);
     uint byte_read = finput.gcount();
     if (byte_read < byte_need)
-        fprintf(stderr, "read bytes less than specified with actual %d int data\n", byte_read / sizeof(int));
+        fprintf(stderr, "read bytes less than specified with actual %ld int data\n", byte_read / sizeof(int));
     finput.close();
 
     for (const int& num : buffer)

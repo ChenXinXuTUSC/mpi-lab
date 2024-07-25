@@ -2,7 +2,7 @@
 
 int main(int argc, char** argv)
 {
-    FILE* fp = fopen("data/10K.bin", "rb");
+    FILE* fp = fopen(argv[1], "rb");
     if (fp == NULL)
     {
         perror("error open data bin");
@@ -22,5 +22,6 @@ int main(int argc, char** argv)
     else
         fprintf(stderr, "error reading data bin\n");
 
+    fclose(fp);
     return 0;
 }
