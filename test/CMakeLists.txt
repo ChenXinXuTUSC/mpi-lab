@@ -3,6 +3,8 @@ SET(
 
     misc/reftest.cpp
     misc/lessread.cpp
+    misc/sort.cpp
+    misc/ifstreamsptr.cpp
 )
 
 FOREACH(_src_file ${test_src_list})

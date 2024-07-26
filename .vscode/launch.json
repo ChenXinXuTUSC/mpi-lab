@@ -14,7 +14,11 @@
             "preLaunchTask": "build",
 
             "environment": [],
-            "args": [],
+            "args": [
+                "-f", "data/10K.bin",
+                "-b", "256",
+                // "-D",
+            ],
             "program": "${workspaceRoot}/build/Debug/bin/${fileBasenameNoExtension}"
         },
         {

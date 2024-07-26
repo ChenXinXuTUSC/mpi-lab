@@ -6,6 +6,8 @@
 char* file_path;
 bool use_asc = false;
 bool use_dsc = false;
+bool print_out = false;
+bool force_out = false;
 
 void parse_args(int argc, char** argv)
 {
@@ -14,7 +16,7 @@ void parse_args(int argc, char** argv)
     extern int   optind;
 
     int opt;
-    while ((opt = getopt(argc, argv, "ADf:")) != -1)
+    while ((opt = getopt(argc, argv, "ADPFf:")) != -1)
     {
         switch(opt)
         {
@@ -24,6 +26,14 @@ void parse_args(int argc, char** argv)
         
         case 'D':
             use_dsc = true;
+            break;
+
+        case 'P':
+            print_out = true;
+            break;
+
+        case 'F':
+            force_out = true;
             break;
         
         case 'f':
@@ -69,11 +79,14 @@ int main(int argc, char** argv)
     int cnt = 1;
     while (fread(&curr, sizeof(int), 1, fp) == 1)
     {
+        if (print_out)
+            fprintf(stdout, "%d ", curr);
         cnt++;
         if ((use_asc && !(prev <= curr)) || (use_dsc && !(prev >= curr)))
         {
             fprintf(stderr, "sequential order check failed at %d with %d and %d\n", cnt, prev, curr);
-            exit(1);
+            if (force_out)
+                exit(1);
         }
     }
 
