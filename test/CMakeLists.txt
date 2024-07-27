@@ -5,6 +5,9 @@ SET(
     misc/lessread.cpp
     misc/sort.cpp
     misc/ifstreamsptr.cpp
+
+    mpi/scatter_discard.c
+    mpi/bcast_test.c
 )
 
 FOREACH(_src_file ${test_src_list})

@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 #include <ctype.h>
+#include <string.h>
 
 char* file_path;
 bool use_asc = false;
@@ -62,6 +63,11 @@ int main(int argc, char** argv)
         fprintf(stderr, "must select only 1 validate mode\n");
         exit(1);
     }
+    if (file_path == NULL || strlen(file_path) == 0)
+    {
+        fprintf(stderr, "must specify a valid file path\n");
+        exit(1);
+    }
 
     FILE* fp = fopen(file_path, "rb");
     if (fp == NULL)
@@ -76,7 +82,9 @@ int main(int argc, char** argv)
         fprintf(stderr, "empty data bin file\n");
         exit(1);
     }
+
     int cnt = 1;
+    bool isordered = true;
     while (fread(&curr, sizeof(int), 1, fp) == 1)
     {
         if (print_out)
@@ -84,13 +92,18 @@ int main(int argc, char** argv)
         cnt++;
         if ((use_asc && !(prev <= curr)) || (use_dsc && !(prev >= curr)))
         {
-            fprintf(stderr, "sequential order check failed at %d with %d and %d\n", cnt, prev, curr);
+            fprintf(stderr, "\nsequential order check failed at %d with %d and %d\n", cnt, prev, curr);
             if (force_out)
-                exit(1);
+                break;
+            isordered = false;
         }
     }
 
-    printf("sequential check passed with %d count\n", cnt);
+    if (isordered)
+        printf("\nsequential check passed with %d count\n", cnt);
+    else
+        printf("\nsequential check passed with %d count\n", cnt);
+    
     fclose(fp);
     return 0;
 }
