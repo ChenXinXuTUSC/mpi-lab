@@ -279,12 +279,17 @@ int main(int argc, char** argv)
 
     if (delete_temp)
     {
-        char output_file_path[128];
-        sprintf(output_file_path, "data/mpi/node%d/recv.bin", world_rank);
-        if (std::remove(output_file_path) != 0)
+        if (world_rank == 0)
         {
-            std::perror("failed to delete temp file");
-            MPI_Abort(MPI_COMM_WORLD, 3);
+            try
+            {
+                if (filesystem::exists("data/mpi"))
+                    filesystem::remove_all("data/mpi");
+            }
+            catch (const filesystem::filesystem_error& e)
+            {
+                std::cerr << "remove temporary files error: " << e.what() << std::endl;
+            }
         }
     }
 
