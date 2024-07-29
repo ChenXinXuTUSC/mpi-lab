@@ -16,6 +16,7 @@ SET(
     sort/kmergef.cpp
     sort/validate.c
     sort/kmergef_mpi.cpp
+    sort/kmergef_mpi2.cpp
 )
 
 FOREACH(_src_file ${mpi_src_list})

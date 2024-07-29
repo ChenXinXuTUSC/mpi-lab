@@ -92,11 +92,13 @@ int main(int argc, char** argv)
         cnt++;
         if ((use_asc && !(prev <= curr)) || (use_dsc && !(prev >= curr)))
         {
-            fprintf(stderr, "\nsequential order check failed at %d with %d and %d\n", cnt, prev, curr);
+            fprintf(stderr, "sequential order check failed at %d with %d and %d\n", cnt, prev, curr);
             if (force_out)
                 break;
             isordered = false;
         }
+
+        prev = curr;
     }
 
     if (isordered)
