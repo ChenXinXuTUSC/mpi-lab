@@ -53,10 +53,10 @@ void sort_file(
 
 void c_truncate(
     const char* file_path,
+    const int typesz,
     const int offset,
     const int movesz,
-    const int buffsz,
-    const int typesz
+    const int buffsz
 );
 
 

@@ -125,7 +125,7 @@ void sort_file(
 
         std::sort(rx_buf.begin(), rx_buf.end());
 
-        sprintf(file_path, "data/temp/node%d/%d.bin", proc_mark, seg_cnt);
+        sprintf(file_path, "data/temp/node%d/seg%d.bin", proc_mark, seg_cnt);
         std::filesystem::create_directories(std::filesystem::path(file_path).parent_path());
         std::ofstream foutput(file_path, std::ofstream::out | std::ofstream::binary);
         if (!foutput.is_open())
@@ -145,19 +145,18 @@ void sort_file(
     std::vector<std::string> input_file_list;
     for (int i = 0; i < seg_cnt; ++i)
     {
-        sprintf(file_path, "data/temp/node%d/%d.bin", proc_mark, i);
+        sprintf(file_path, "data/temp/node%d/seg%d.bin", proc_mark, i);
         input_file_list.emplace_back(std::string(file_path));
     }
     kmerge_file(input_file_list, output_file_path);
 }
 
 void c_truncate(
-    const char*
-    file_path,
+    const char* file_path,
+    const int typesz,
     const int offset,
     const int movesz,
-    const int buffsz,
-    const int typesz
+    const int buffsz
 ) {
     if (buffsz <= 0 || typesz <= 0)
     {
