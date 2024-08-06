@@ -85,6 +85,7 @@ int main(int argc, char** argv)
 
     int cnt = 1;
     bool isordered = true;
+    fprintf(stdout, "%d ", prev);
     while (fread(&curr, sizeof(int), 1, fp) == 1)
     {
         if (print_out)

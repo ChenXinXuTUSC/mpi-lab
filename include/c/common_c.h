@@ -8,4 +8,9 @@
 #include <time.h>
 #include <assert.h>
 
+#include <getopt.h>
+#include <ctype.h>
+
+#include <math.h>
+
 #endif

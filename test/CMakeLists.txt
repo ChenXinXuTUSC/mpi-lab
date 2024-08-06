@@ -7,6 +7,7 @@ SET(
     misc/ifstreamsptr.cpp
     misc/intercept.cpp
     misc/truncate.cpp
+    misc/genseq.c
 
     mpi/scatter_discard.c
     mpi/bcast_test.c

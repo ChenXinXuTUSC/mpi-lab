@@ -1,11 +1,7 @@
 #include <common_c.h>
 
-#include <math.h>
-#include <ctype.h>
-#include <time.h>
 #include <limits.h>
 
-#include <getopt.h>
 
 bool use_exp_K = false; // 2^10
 bool use_exp_M = false; // 2^20

@@ -1,9 +1,5 @@
 #include <common_c.h>
 
-#include <getopt.h>
-#include <ctype.h>
-
-#include <math.h>
 
 char* file_path;
 int offset;
