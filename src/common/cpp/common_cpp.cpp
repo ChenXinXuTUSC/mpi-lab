@@ -43,7 +43,7 @@ void kmerge_file(
         const std::pair<std::shared_ptr<std::ifstream>, int>& fp1,
         const std::pair<std::shared_ptr<std::ifstream>, int>& fp2
     ) {
-        return fp1.second< fp2.second; // ascend heap, not descend heap
+        return fp1.second > fp2.second; // ascend heap, not descend heap
     };
     heap<std::pair<std::shared_ptr<std::ifstream>, int>, decltype(cmp)> ksegheap(cmp);
 
