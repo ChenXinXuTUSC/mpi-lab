@@ -10,61 +10,44 @@ bool use_exp_G = false; // 2^30
 unsigned int num = 0;
 unsigned int epl = 0;
 
-void parse_args(int argc, char** argv)
-{
-    extern char* optarg;
-    extern int   optopt;
-    extern int   optind;
-
-    int opt;
-    while ((opt = getopt(argc, argv, "hKMGN:")) != -1) {
-        switch (opt) {
-        case 'K':
-            use_exp_K = true;
-            break;
-        case 'M':
-            use_exp_M = true;
-            break;
-        case 'G':
-            use_exp_G = true;
-            break;
-        case 'N':
-            num = atoi(optarg);
-            break;
-        case 'h':
-            fprintf(stdout, "gendata [-MKG] -N <num>");
-            break;
-        case '?':
-            if (optopt == 'o')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            else if (isprint(optopt))
-                fprintf(stderr, "Unknown option `-%c'.\n", optopt);
-            else
-                fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
-            break;
-        default:
-            abort();
-        }
-    }
-
-    if (use_exp_K) epl = pow(2, 10);
-    if (use_exp_M) epl = pow(2, 20);
-    if (use_exp_G) epl = pow(2, 30);
-    if (!epl)
-    {
-        fprintf(stderr, "no level specified, abort...");
-        exit(1);
-    }
-
-    // Remaining arguments after specififed options
-    for (int i = optind; i < argc; i++) {
-        printf("Non-option argument: %s\n", argv[i]);
+void args_handler(
+    const int opt,
+    const int optopt,
+    const int optind,
+    char* optarg
+) {
+    switch (opt) {
+    case 'K':
+        use_exp_K = true;
+        break;
+    case 'M':
+        use_exp_M = true;
+        break;
+    case 'G':
+        use_exp_G = true;
+        break;
+    case 'N':
+        num = atoi(optarg);
+        break;
+    case 'h':
+        fprintf(stdout, "gendata [-MKG] -N <num>");
+        break;
+    case '?':
+        if (optopt == 'o')
+            fprintf(stderr, "Option -%c requires an argument.\n", optopt);
+        else if (isprint(optopt))
+            fprintf(stderr, "Unknown option `-%c'.\n", optopt);
+        else
+            fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
+        break;
+    default:
+        abort();
     }
 }
 
 int main(int argc, char** argv)
 {
-    parse_args(argc, argv);
+    parse_args(argc, argv, "hKMGN:", &args_handler);
     printf("N: %d, E: %E\n", num, (double)epl);
 
     srand((unsigned int)time(NULL));

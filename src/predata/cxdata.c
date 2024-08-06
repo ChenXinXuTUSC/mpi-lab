@@ -1,15 +1,54 @@
 #include <common_c.h>
 
-
 char* file_path;
 int offset;
 int movesz;
 int buffsz;
 int typesz;
 
-void parse_args(int argc, char** argv);
-
 void c_truncate(const char* file_path, const int offset, const int movesz, const int buffsz, const int typesz);
+
+void args_handler(
+    const int opt,
+    const int optopt,
+    const int optind,
+    char* optarg
+) {
+    switch (opt)
+    {
+    case 'f':
+        file_path = optarg;
+        break;
+    
+    case 'b':
+        buffsz = atoi(optarg);
+        break;
+
+    case 'o':
+        offset = atoi(optarg);
+        break;
+    
+    case 'n':
+        movesz = atoi(optarg);
+        break;
+    
+    case 't':
+        typesz = atoi(optarg);
+        break;
+    
+    case '?':
+        if (optopt == 'o')
+            fprintf(stderr, "Option -%c requires an argument.\n", optopt);
+        else if (isprint(optopt))
+            fprintf(stderr, "Unknown option `-%c'.\n", optopt);
+        else
+            fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
+        break;
+    default:
+        abort();
+    }
+}
+
 
 int min(int a, int b)
 {
@@ -19,7 +58,7 @@ int min(int a, int b)
 
 int main(int argc, char** argv)
 {
-    parse_args(argc, argv);
+    parse_args(argc, argv, "f:b:o:n:t:", &args_handler);
 
     c_truncate(file_path, offset, movesz, buffsz, typesz);
 
@@ -79,49 +118,4 @@ void c_truncate(const char* file_path, const int offset, const int movesz, const
     fclose(rx_ptr);
     fclose(tx_ptr);
     free(buf);
-}
-
-void parse_args(int argc, char** argv)
-{
-    extern char* optarg;
-    extern int   optopt;
-    extern int   optind;
-
-    int opt;
-    while ((opt = getopt(argc, argv, "f:b:o:n:t:")) != -1)
-    {
-        switch (opt)
-        {
-        case 'f':
-            file_path = optarg;
-            break;
-        
-        case 'b':
-            buffsz = atoi(optarg);
-            break;
-
-        case 'o':
-            offset = atoi(optarg);
-            break;
-        
-        case 'n':
-            movesz = atoi(optarg);
-            break;
-        
-        case 't':
-            typesz = atoi(optarg);
-            break;
-        
-        case '?':
-            if (optopt == 'o')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            else if (isprint(optopt))
-                fprintf(stderr, "Unknown option `-%c'.\n", optopt);
-            else
-                fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
-            break;
-        default:
-            abort();
-        }
-    }
 }

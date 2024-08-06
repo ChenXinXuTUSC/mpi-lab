@@ -7,11 +7,39 @@
 // global data
 int array_size = 0;
 
-void parse_args(int argc, char** argv);
+void args_handler(
+    const int opt,
+    const int optopt,
+    const int optind,
+    char* optarg
+) {
+    switch(opt)
+    {
+    case 'n':
+        array_size = atoi(optarg);
+        if (array_size <= 0)
+        {
+            fprintf(stderr, "invalid array size %d\n", array_size);
+            exit(1);
+        }
+        break;
+
+    case '?':
+        if (optopt == 'o')
+            fprintf(stderr, "Option -%c requires an argument.\n", optopt);
+        else if (isprint(optopt))
+            fprintf(stderr, "Unknown option `-%c'.\n", optopt);
+        else
+            fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
+        break;
+    default:
+        abort();
+    }
+}
 
 int main(int argc, char** argv)
 {
-    parse_args(argc, argv);
+    parse_args(argc, argv, "n:", &args_handler);
 
     MPI_Init(&argc, &argv);
 
@@ -58,38 +86,4 @@ int main(int argc, char** argv)
     free(recv_data);
     MPI_Finalize();
     return 0;
-}
-
-void parse_args(int argc, char** argv)
-{
-    extern char* optarg;
-    extern int   optopt;
-    extern int   optind;
-
-    int opt;
-    while ((opt = getopt(argc, argv, "n:")) != -1)
-    {
-        switch(opt)
-        {
-        case 'n':
-            array_size = atoi(optarg);
-            if (array_size <= 0)
-            {
-                fprintf(stderr, "invalid array size %d\n", array_size);
-                exit(1);
-            }
-            break;
-
-        case '?':
-            if (optopt == 'o')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            else if (isprint(optopt))
-                fprintf(stderr, "Unknown option `-%c'.\n", optopt);
-            else
-                fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
-            break;
-        default:
-            abort();
-        }
-    }
 }

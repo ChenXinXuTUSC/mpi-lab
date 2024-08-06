@@ -1,27 +1,37 @@
 SET(
-    mpi_src_list
-    sendrecv/helloworld.c
-    sendrecv/sendrecv.c
-    sendrecv/sendrecv2.c
-    sendrecv/pingpong.c
-    sendrecv/ring.c
+    sub_dir_list
 
-    dynamic/check_status.c
-    dynamic/random_walk.cpp
-
-    collective/mybcast.c
-    collective/avg.c
-
-    sort/oddeven.cpp
-    sort/kmerge.cpp
-    sort/kmergef.cpp
-    sort/validate.c
-    sort/kmergef_mpi.cpp
-    sort/kmergef_mpi2.cpp
+    collective
+    dynamic
+    sendrecv
+    sort
+    predata
 )
 
-FOREACH(_src_file ${mpi_src_list})
+SET(cpp_src_list)
+SET(c_src_list)
+
+FOREACH(_sub_dir ${sub_dir_list})
+    FILE(
+        GLOB sub_dir_src_list ${_sub_dir}/*.cpp
+    )
+    LIST(APPEND cpp_src_list ${sub_dir_src_list})
+
+    FILE(
+        GLOB sub_dir_src_list ${_sub_dir}/*.c
+    )
+    LIST(APPEND c_src_list ${sub_dir_src_list})
+ENDFOREACH()
+
+
+FOREACH(_src_file ${cpp_src_list})
     GET_FILENAME_COMPONENT(_src_name ${_src_file} NAME_WE)
     ADD_EXECUTABLE(${_src_name} ${_src_file})
-    TARGET_LINK_LIBRARIES(${_src_name} PRIVATE ${MPI_LIBRARIES})
+    TARGET_LINK_LIBRARIES(${_src_name} PRIVATE ${MPI_LIBRARIES} common_cpp)
+ENDFOREACH()
+
+FOREACH(_src_file ${c_src_list})
+    GET_FILENAME_COMPONENT(_src_name ${_src_file} NAME_WE)
+    ADD_EXECUTABLE(${_src_name} ${_src_file})
+    TARGET_LINK_LIBRARIES(${_src_name} PRIVATE ${MPI_LIBRARIES} common_c)
 ENDFOREACH()

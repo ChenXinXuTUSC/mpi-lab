@@ -13,4 +13,17 @@
 
 #include <math.h>
 
+// function
+
+void parse_args(
+    int argc, char** argv,
+    const char* shortopts,
+    void(*args_handler)(
+        const int opt,
+        const int optopt,
+        const int optind,
+        char* optarg
+    )
+);
+
 #endif
