@@ -2,6 +2,7 @@ SET(
     mpi_src_list
     sendrecv/helloworld.c
     sendrecv/sendrecv.c
+    sendrecv/sendrecv2.c
     sendrecv/pingpong.c
     sendrecv/ring.c
 
@@ -11,7 +12,7 @@ SET(
     collective/mybcast.c
     collective/avg.c
 
-    sort/oddevensort.c
+    sort/oddeven.cpp
     sort/kmerge.cpp
     sort/kmergef.cpp
     sort/validate.c

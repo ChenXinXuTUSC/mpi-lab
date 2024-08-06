@@ -5,6 +5,8 @@ SET(
     misc/lessread.cpp
     misc/sort.cpp
     misc/ifstreamsptr.cpp
+    misc/intercept.cpp
+    misc/truncate.cpp
 
     mpi/scatter_discard.c
     mpi/bcast_test.c

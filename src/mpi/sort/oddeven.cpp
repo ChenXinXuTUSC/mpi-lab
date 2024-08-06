@@ -1,14 +1,15 @@
 #include <common_cpp.h>
-#include <getopt.h>
-#include <ctype.h>
 
 #include <mpi/mpi.h>
 
+#include <getopt.h>
+#include <ctype.h>
+
 #include <functional>
 #include <memory>
-#include <myheap.h>
-
 #include <filesystem>
+
+#include <myheap.h>
 
 // global data and option
 int buf_size = 0;
@@ -18,9 +19,17 @@ bool delete_temp = false;
 // global function
 void parse_args(int argc, char** argv);
 
-void kmerge_file(std::vector<std::string> input_list, std::string output_list);
+void kmerge_file(
+    std::vector<std::string> input_file_list,
+    std::string output_file_path
+);
 
-void sort_file(std::string input_file_path, std::string output_file_path, const int& internal_buf_size, const int& proc_mark);
+void sort_file(
+    std::string input_file_path,
+    std::string output_file_path,
+    const int& internal_buf_size,
+    const int& proc_mark
+);
 
 int main(int argc, char** argv)
 {
@@ -35,14 +44,13 @@ int main(int argc, char** argv)
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-
     // distribute data to all nodes
     {
         std::ifstream finput;
         if (world_rank == 0)
         {
             // master node is respnsible for reading in the data
-            finput.open(bin_data_path, std::ifstream::in | std::ifstream::binary);
+            finput.open(bin_data_path, std::ifstream::binary);
             if (!finput.is_open())
             {
                 fprintf(stderr, "failed to open %s\n", bin_data_path);
@@ -53,33 +61,33 @@ int main(int argc, char** argv)
         char file_path[128];
         sprintf(file_path, "data/mpi/node%d/recv.bin", world_rank);
         std::filesystem::create_directories(std::filesystem::path(file_path).parent_path()); // return false if dir already exists
-        std::ofstream foutput(file_path, std::ofstream::out | std::ofstream::binary);
+        std::ofstream foutput(file_path, std::ofstream::binary);
         if (!foutput.is_open())
         {
             fprintf(stderr, "failed to open %s\n", file_path);
             MPI_Abort(MPI_COMM_WORLD, 2);
         }
 
-        std::vector<int> send_data(buf_size);
-        std::vector<int> recv_data(buf_size);
+        std::vector<int> tx_buf(buf_size);
+        std::vector<int> rx_buf(buf_size);
         int rx_cnt;
         int tx_cnt;
         do {
             if (world_rank == 0)
             {
-                finput.read(reinterpret_cast<char*>(send_data.data()), sizeof(int) * buf_size);
+                finput.read(reinterpret_cast<char*>(tx_buf.data()), sizeof(int) * buf_size);
                 rx_cnt = finput.gcount() / sizeof(int);
             }
-            // every node must know the amount to receive
+            // every node receive signal from main node
             MPI_Bcast(&rx_cnt, 1, MPI_INT, 0, MPI_COMM_WORLD);
-            if (rx_cnt == 0) break; // no data
-            
-            tx_cnt = (rx_cnt - 1) / world_size + 1;
+            if (rx_cnt == 0) break; // every node exit distribution stage
+
+            tx_cnt = (rx_cnt - 1) / world_size + 1; // divided by each process node, (a-1)/b+1 is ceiling formula
             MPI_Scatter(
-                send_data.data(),
+                tx_buf.data(),
                 tx_cnt,
                 MPI_INT,
-                recv_data.data(),
+                rx_buf.data(),
                 tx_cnt,
                 MPI_INT,
                 0,
@@ -87,7 +95,7 @@ int main(int argc, char** argv)
             );
 
             // each node dump the receive data to disk
-            foutput.write(reinterpret_cast<char*>(recv_data.data()), sizeof(int) * tx_cnt);
+            foutput.write(reinterpret_cast<char*>(rx_buf.data()), sizeof(int) * tx_cnt);
         } while (rx_cnt == buf_size);
 
         if (world_rank == 0)
@@ -109,81 +117,132 @@ int main(int argc, char** argv)
     MPI_Barrier(MPI_COMM_WORLD); // end of data each node file sort
 
 
-    // logn merge by multiple process nodes
+
+
+    // segment prepare finish, now start odd even sort algorithm
     {
-        std::vector<int> send_data(buf_size);
-        std::vector<int> recv_data(buf_size);
+        int partner_rank;
+        char file_path[128];
+
         int rx_cnt;
         int tx_cnt;
+        int file_size_befor_merge; // save for merge result filtration
+        std::vector<int> rx_buf(buf_size);
+        std::vector<int> tx_buf(buf_size);
 
-        for (int i = 2; i <= world_size; i *= 2)
+        for (int phase = 0; phase < world_size; ++phase)
         {
-            // if (world_rank == 0)
-            //     printf("=========================== stride %d ===========================\n", i);
-            if (world_rank % i == 0)
+            if (world_rank % 2 == 0)
             {
-                // this node should receive from partner
-                // and do the merge
-                int partner_rank = world_rank + i / 2;
-                // printf("node%d will receive from node%d\n", world_rank, partner_rank);
-                char file_path[128];
-                sprintf(file_path, "data/mpi/node%d/sorted_partner.bin", world_rank);
-                std::filesystem::create_directories(std::filesystem::path(file_path).parent_path());
-                std::ofstream foutput(file_path, std::ofstream::out | std::ofstream::binary);
-                if (!foutput.is_open())
-                {
-                    fprintf(stderr, "node%d failed to receive partner node%d's sorted data\n", world_rank, partner_rank);
-                    MPI_Abort(MPI_COMM_WORLD, 5);
-                }
-
-                MPI_Status recv_status;
-                do {
-                    MPI_Recv(recv_data.data(), buf_size, MPI_INT, partner_rank, 0, MPI_COMM_WORLD, &recv_status);
-                    MPI_Get_count(&recv_status, MPI_INT, &rx_cnt);
-
-                    foutput.write(reinterpret_cast<char*>(recv_data.data()), sizeof(int) * rx_cnt);
-                } while (rx_cnt == buf_size);
-                foutput.close();
-
-                // merge into one sorted segment
-                std::vector<std::string> input_file_list;
-                sprintf(file_path, "data/mpi/node%d/sorted.bin", world_rank);
-                std::string input_file_path1 = std::string(file_path);
-                input_file_list.emplace_back(input_file_path1);
-                sprintf(file_path, "data/mpi/node%d/sorted_partner.bin", world_rank);
-                std::string input_file_path2 = std::string(file_path);
-                input_file_list.emplace_back(input_file_path2);
-                sprintf(file_path, "data/mpi/node%d/merge.bin", world_rank);
-                std::string merge_file_path = std::string(file_path);
-                kmerge_file(input_file_list, merge_file_path);
-                // prepare for next merge read
-                std::filesystem::rename(merge_file_path, input_file_path1);
+                if (phase % 2 == 0) partner_rank = world_rank + 1;
+                else                partner_rank = world_rank - 1;
             }
-            else if ((world_rank - i / 2) >= 0 && (world_rank - i / 2) % i == 0)
+            else
             {
-                // this node should send to partner
-                int partner_rank = world_rank - i / 2;
-                // printf("node%d will send to node%d\n", world_rank, partner_rank);
-                char file_path[128];
-                sprintf(file_path, "data/mpi/node%d/sorted.bin", world_rank);
-                std::ifstream finput(file_path, std::ifstream::in | std::ifstream::binary);
-                if (!finput.is_open())
+                if (phase % 2 == 0) partner_rank = world_rank - 1;
+                else                partner_rank = world_rank + 1;
+            }
+            if (partner_rank < 0 || partner_rank == world_size) continue; // idle pass, no partner
+            printf("[phase %d node%d] %d<->%d\n", phase, world_rank, world_rank, partner_rank);
+
+            // preparation for MPI_Sendrecv
+            // input file
+            sprintf(file_path, "data/mpi/node%d/sorted.bin", world_rank);
+            std::ifstream finput(file_path, std::ifstream::binary);
+            if (!finput.is_open())
+            {
+                fprintf(stderr, "node%d failed to open %s during phase %d\n", world_rank, file_path, phase);
+                MPI_Abort(MPI_COMM_WORLD, 1);
+            }
+            file_size_befor_merge = std::filesystem::file_size(file_path);
+            // output file
+            sprintf(file_path, "data/mpi/node%d/sorted_partner.bin", world_rank);
+            std::filesystem::create_directories(std::filesystem::path(std::string(file_path)).parent_path());
+            std::ofstream foutput(file_path, std::ofstream::binary);
+            if (!foutput.is_open())
+            {
+                fprintf(stderr, "node%d failed to open %s during phase %d\n", world_rank, file_path, phase);
+                MPI_Abort(MPI_COMM_WORLD, 2);
+            }
+
+
+            // start data exchange
+            MPI_Status status;
+            do {
+                if (finput.is_open())
                 {
-                    fprintf(stderr, "node%d failed to open sorted data bin file\n", world_rank);
-                    MPI_Abort(MPI_COMM_WORLD, 5);
-                }
-
-                do {
-                    finput.read(reinterpret_cast<char*>(send_data.data()), sizeof(int) * buf_size);
+                    finput.read(reinterpret_cast<char*>(tx_buf.data()), sizeof(int) * buf_size);
                     tx_cnt = finput.gcount() / sizeof(int);
+                    if (tx_cnt == 0) finput.close();
+                }
+                MPI_Sendrecv(
+                    tx_buf.data(), tx_cnt,   MPI_INT, partner_rank, 0, // send to partner
+                    rx_buf.data(), buf_size, MPI_INT, partner_rank, 0, // receive from partner
+                    MPI_COMM_WORLD, &status
+                );
+                MPI_Get_count(&status, MPI_INT, &rx_cnt);
+                foutput.write(reinterpret_cast<char*>(rx_buf.data()), sizeof(int) * rx_cnt);
+            } while (tx_cnt == buf_size || rx_cnt == buf_size);
+            foutput.close();
 
-                    MPI_Send(send_data.data(), tx_cnt, MPI_INT, partner_rank, 0, MPI_COMM_WORLD);
-                } while (tx_cnt == buf_size);
-                finput.close();
+
+
+            // start external merge
+            std::vector<std::string> input_file_list;
+            sprintf(file_path, "data/mpi/node%d/sorted.bin", world_rank);
+            std::string input_file_path1 = std::string(file_path);
+            input_file_list.emplace_back(input_file_path1);
+            sprintf(file_path, "data/mpi/node%d/sorted_partner.bin", world_rank);
+            std::string input_file_path2 = std::string(file_path);
+            input_file_list.emplace_back(input_file_path2);
+
+            sprintf(file_path, "data/mpi/node%d/merge.bin", world_rank);
+            std::string merge_file_path = std::string(file_path);
+            kmerge_file(input_file_list, merge_file_path);
+            std::filesystem::rename(merge_file_path, input_file_path1); // rename to "sorted.bin"
+
+            // intercept sz_cnt part
+            {
+                // sprintf(file_path, "data/mpi/node%d/sorted.bin", world_rank);
+                // std::ifstream finput(file_path, std::ifstream::binary);
+                // if (!finput.is_open())
+                // {
+                //     fprintf(stderr, "node%d failed to open merge file %s during phase %d\n", world_rank, file_path, phase);
+                //     MPI_Abort(MPI_COMM_WORLD, 1);
+                // }
+                // sprintf(file_path, "data/mpi/node%d/part.bin", world_rank);
+                // std::filesystem::create_directories(std::filesystem::path(std::string(file_path)).parent_path());
+                // std::ofstream foutput(file_path, std::ofstream::binary);
+                // if (!foutput.is_open())
+                // {
+                //     fprintf(stderr, "node%d failed to open part file %s during phase %d\n", world_rank, file_path, phase);
+                //     MPI_Abort(MPI_COMM_WORLD, 2);
+                // }
+
+                if (world_rank < partner_rank)
+                {
+                    // keep the smaller part
+                    
+                }
+                else
+                {
+                    // keep the bigger part
+                }
             }
         }
+
     }
     MPI_Barrier(MPI_COMM_WORLD);
+
+
+    if (world_rank == 0)
+    {
+        // only need one process to merge all sorted segments
+        for (int i = 0; i < world_size; ++i)
+        {
+            
+        }
+    }
 
     // put result to output folder
     if (world_rank == 0)
@@ -213,9 +272,11 @@ int main(int argc, char** argv)
         }
     }
 
+
     MPI_Finalize();
     return 0;
 }
+
 
 void parse_args(int argc, char** argv)
 {
@@ -258,7 +319,10 @@ void parse_args(int argc, char** argv)
     }
 }
 
-void kmerge_file(std::vector<std::string> input_file_list, std::string output_file_path)
+void kmerge_file(
+    std::vector<std::string> input_file_list,
+    std::string output_file_path
+)
 {
     std::function<
         bool(
@@ -269,7 +333,7 @@ void kmerge_file(std::vector<std::string> input_file_list, std::string output_fi
         const std::pair<std::shared_ptr<std::ifstream>, int>& fp1,
         const std::pair<std::shared_ptr<std::ifstream>, int>& fp2
     ) {
-        return fp1.second > fp2.second; // ascend heap, not descend heap
+        return fp1.second< fp2.second; // ascend heap, not descend heap
     };
     heap<std::pair<std::shared_ptr<std::ifstream>, int>, decltype(cmp)> ksegheap(cmp);
 
@@ -315,7 +379,19 @@ void kmerge_file(std::vector<std::string> input_file_list, std::string output_fi
     foutput.close();
 }
 
-void sort_file(std::string input_file_path, std::string output_file_path, const int& internal_buf_size, const int& proc_mark)
+/*
+* internal_buf_size - vector size for external sort
+* proc_mark - used for MPI environment
+* keep_size - number of items will actually be saved to file, -1 for all
+* sort_order - 0: ascend, 1: descend
+* save_order - 0: ascend, 1: descend
+*/
+void sort_file(
+    std::string input_file_path,
+    std::string output_file_path,
+    const int& internal_buf_size,
+    const int& proc_mark
+)
 {
     // some data variables
 
@@ -331,6 +407,7 @@ void sort_file(std::string input_file_path, std::string output_file_path, const 
     int rx_cnt;
     std::vector<int> rx_buf(internal_buf_size);
     char file_path[128];
+
     do {
         finput.read(reinterpret_cast<char*>(rx_buf.data()), sizeof(int) * internal_buf_size);
         rx_cnt = finput.gcount() / sizeof(int);

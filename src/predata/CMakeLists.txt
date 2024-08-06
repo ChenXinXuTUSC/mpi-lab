@@ -2,6 +2,7 @@ SET(
     predata_src_list
     txdata.c
     rxdata.c
+    cxdata.c
 )
 
 FOREACH(_src_file ${predata_src_list})
