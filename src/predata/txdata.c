@@ -11,24 +11,26 @@ bool use_exp_G = false; // 2^30
 unsigned int num = 0;
 unsigned int epl = 0;
 
-bool gen_int = false;
-bool gen_flt = false;
+#ifdef USE_INT
+    typedef int dtype;
+    const char* dtype_str = "INT";
 
-float gen_random_flt(float seed)
-{
-    // 随机决定是正数还是负数
-    // float sign = (rand() % 2 ? 1.0f : -1.0f);  // 生成 -1 或 1
-    
-    // 将随机浮点数映射到 [-FLT_MAX, FLT_MAX] 范围
-    return 4 * seed * (1.0f - seed);
-    // return sign * scale;
-}
+    int random_data(int seed)
+    {
+        int sign = (rand() % 2) * 2 - 1;  // 生成 -1 或 1
+        return sign * rand();
+    }
+#endif
 
-int gen_random_int()
-{
-    int sign = (rand() % 2) * 2 - 1;  // 生成 -1 或 1
-    return sign * rand();
-}
+#ifdef USE_FLT
+    typedef float dtype;
+    const char* dtype_str = "FLT";
+
+    float random_data(float seed)
+    {
+        return 4 * seed * (1.0f - seed);
+    }
+#endif
 
 void args_handler(
     const int opt,
@@ -37,12 +39,6 @@ void args_handler(
     char* optarg
 ) {
     switch (opt) {
-    case 'I':
-        gen_int = true;
-        break;
-    case 'F':
-        gen_flt = true;
-        break;
     case 'K':
         use_exp_K = true;
         break;
@@ -56,15 +52,13 @@ void args_handler(
         num = atoi(optarg);
         break;
     case 'h':
-        fprintf(stdout, "gendata [-MKG] -N <num>");
+        printf("gendata [-MKG] -N <num>");
         break;
     case '?':
-        if (optopt == 'o')
-            fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-        else if (isprint(optopt))
-            fprintf(stderr, "Unknown option `-%c'.\n", optopt);
+        if (isprint(optopt))
+            printf("Unknown option `-%c'.\n", optopt);
         else
-            fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
+            printf("Unknown option character `\\x%x'.\n", optopt);
         break;
     default:
         abort();
@@ -73,28 +67,26 @@ void args_handler(
 
 int main(int argc, char** argv)
 {
-    parse_args(argc, argv, "hIFKMGN:", &args_handler);
-    if ((!gen_int && !gen_flt) || (gen_int && gen_flt))
-    {
-        fprintf(stderr, "must specified only one mode\n");
-        exit(-1);
-    }
-
-    printf("N: %d, E: %E\n", num, (double)epl);
+    parse_args(argc, argv, "hKMGN:", &args_handler);
 
     srand((unsigned int)time(NULL));
-    float seed = (float)rand() / (float)RAND_MAX;
 
     const char* exp_str = "";
     if (use_exp_M)  exp_str = "M";
     if (use_exp_K)  exp_str = "K";
     if (use_exp_G)  exp_str = "G";
-    const char* typ_str = "";
-    if (gen_int) typ_str = "INT";
-    if (gen_flt) typ_str = "FLT";
+
+    if (use_exp_K) epl = pow(2, 10);
+    if (use_exp_M) epl = pow(2, 20);
+    if (use_exp_G) epl = pow(2, 30);
+    if (!epl)
+    {
+        printf("no exponent specified, abort...");
+        exit(-1);
+    }
 
     char filename[128];
-    sprintf(filename, "%s%d%s.bin", typ_str, num, exp_str);
+    sprintf(filename, "%s%d%s.bin", dtype_str, num, exp_str);
     printf("will write to %s\n", filename);
 
     FILE* fp = fopen(filename, "wb");
@@ -104,45 +96,18 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    size_t typesz;
-    if (gen_int) typesz = sizeof(int);
-    if (gen_flt) typesz = sizeof(float);
-
-    void* data = malloc(typesz);
-
-
-    if (use_exp_K) epl = pow(2, 10);
-    if (use_exp_M) epl = pow(2, 20);
-    if (use_exp_G) epl = pow(2, 30);
-    if (!epl)
-    {
-        fprintf(stderr, "no level specified, abort...");
-        exit(1);
-    }
+    dtype data = (dtype)rand() / (dtype)RAND_MAX;
     for (size_t i = 0; i < (size_t)(num * epl); ++i)
     {
-        if (gen_int)
-        {
-            int rand_int = gen_random_int();
-            memcpy(data, &rand_int, typesz);
-        }
-        if (gen_flt)
-        {
-            float rand_flt = gen_random_flt(seed);
-            seed = rand_flt;
-            memcpy(data, &rand_flt, typesz);
-        }
-
-        size_t tx_cnt = fwrite(data, typesz, 1, fp);
+        data = random_data(data);
+        size_t tx_cnt = fwrite(&data, sizeof(dtype), 1, fp);
         if (tx_cnt < 1)
         {
-            fprintf(stderr, "failed to write data, abort\n");
+            printf("failed to write data, abort\n");
             exit(1);
         }
     }
-    fclose(fp);
-    printf("finish random data generation\n");
 
-    free(data);
+    fclose(fp);
     return 0;
 }

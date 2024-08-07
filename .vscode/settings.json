@@ -65,5 +65,12 @@
         "sstream": "cpp",
         "stdbool.h": "c"
     },
-    "cmake.configureOnOpen": true
+    "cmake.configureOnOpen": true,
+    "cmake.setBuildTypeOnMultiConfig": true,
+    "cmake.options.statusBarVisibility": "visible",
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "cmake.configureArgs": [
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DUSE_FLT=ON"
+    ],
 }

@@ -37,12 +37,10 @@ void args_handler(
         break;
     
     case '?':
-        if (optopt == 'o')
-            fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-        else if (isprint(optopt))
-            fprintf(stderr, "Unknown option `-%c'.\n", optopt);
+        if (isprint(optopt))
+            printf("Unknown option `-%c'.\n", optopt);
         else
-            fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
+            printf("Unknown option character `\\x%x'.\n", optopt);
         break;
     default:
         abort();
@@ -69,28 +67,28 @@ void c_truncate(const char* file_path, const int offset, const int movesz, const
 {
     if (buffsz <= 0 || typesz <= 0)
     {
-        fprintf(stderr, "invalid arguments buffsz=%d, typesz=%d\n", buffsz, typesz);
+        printf("invalid arguments buffsz=%d, typesz=%d\n", buffsz, typesz);
         exit(-1);
     }
 
     FILE* rx_ptr = fopen(file_path, "r+");
     if (rx_ptr == NULL)
     {
-        fprintf(stderr, "failed to open file %s\n", file_path);
+        printf("failed to open file %s\n", file_path);
         exit(1);
     }
 
     FILE* tx_ptr = fopen(file_path, "r+");
     if (tx_ptr == NULL)
     {
-        fprintf(stderr, "failed to open file %s\n", file_path);
+        printf("failed to open file %s\n", file_path);
         exit(1);
     }
 
     char* buf = (char*)malloc(typesz * buffsz);
     if (buf == NULL)
     {
-        fprintf(stderr, "failed to allocate buffer with size %d\n", buffsz);
+        printf("failed to allocate buffer with size %d\n", buffsz);
         exit(3);
     }
 
@@ -111,7 +109,7 @@ void c_truncate(const char* file_path, const int offset, const int movesz, const
     fseek(tx_ptr, 0, SEEK_SET);
     if (ftruncate(fileno(tx_ptr), movect * typesz) != 0)
     {
-        fprintf(stderr, "failed to truncate result file\n");
+        printf("failed to truncate result file\n");
         exit(2);
     }
 

@@ -18,5 +18,21 @@ INCLUDE_DIRECTORIES(include/c)
 INCLUDE_DIRECTORIES(include/cpp)
 
 
+OPTION(USE_INT "use int data type" OFF)
+OPTION(USE_FLT "use int float type" OFF)
+
+IF((USE_INT AND USE_FLT) OR (NOT USE_INT AND NOT USE_FLT))
+    MESSAGE(FATAL_ERROR "must specify only 1 data type [USE_INT|USE_FLT]")
+ENDIF()
+
+IF(USE_INT)
+    MESSAGE("template for int")
+    ADD_DEFINITIONS(-DUSE_INT)
+ENDIF()
+IF(USE_FLT)
+    MESSAGE("template for float")
+    ADD_DEFINITIONS(-DUSE_FLT)
+ENDIF()
+
 ADD_SUBDIRECTORY(src)
 ADD_SUBDIRECTORY(test)
