@@ -6,7 +6,8 @@ char* file_path;
 bool use_asc = false;
 bool use_dsc = false;
 bool print_out = false;
-bool force_out = false;
+bool is_int = false;
+bool is_flt = false;
 
 void args_handler(
     const int opt,
@@ -29,17 +30,18 @@ void args_handler(
         break;
 
     case 'F':
-        force_out = true;
+        is_flt = true;
         break;
+    
+    case 'I':
+        is_int = true;
     
     case 'f':
         file_path = optarg;
         break;
 
     case '?':
-        if (optopt == 'o')
-            fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-        else if (isprint(optopt))
+        if (isprint(optopt))
             fprintf(stderr, "Unknown option `-%c'.\n", optopt);
         else
             fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
@@ -49,31 +51,75 @@ void args_handler(
     }
 }
 
+void print_data(void* data, bool is_int, bool is_flt) {
+    if ((is_int && is_flt) || (!is_int && !is_flt) || data == NULL)
+    {
+        printf("must select only 1 data type\n");
+        return;
+    }
+    if (is_int) printf("%d ", *((int*)data));
+    if (is_flt) printf("%f ", *((float*)data));
+}
+
+bool cmpt(void* d1, void* d2, bool is_int, bool is_flot, bool asc)
+{
+    if ((is_int && is_flt) || (!is_int && !is_flt) || d1 == NULL || d2 == NULL)
+    {
+        printf("must select only 1 data type\n");
+        return false;
+    }
+    if (is_int)
+    {
+        int di1 = *((int*)d1);
+        int di2 = *((int*)d2);
+        if (asc) return di1 <= di2;
+        else return di1 >= di2;
+    }
+    if (is_flt)
+    {
+        float df1 = *((float*)d1);
+        float df2 = *((float*)d2);
+        if (asc) return df1 <= df2;
+        else return df1 >= df2;
+    }
+}
+
 int main(int argc, char** argv)
 {
-    parse_args(argc, argv, "ADPFf:", &args_handler);
-    if (use_asc && use_dsc)
+    parse_args(argc, argv, "ADPFIf:", &args_handler);
+    if ((use_asc && use_dsc) || (!use_asc && !use_dsc))
     {
-        fprintf(stderr, "must select only 1 validate mode\n");
-        exit(1);
+        printf("must select only 1 validate mode\n");
+        exit(-1);
+    }
+    if ((is_int && is_flt) || (!is_int && !is_flt))
+    {
+        printf("must select only 1 data type\n");
+        exit(-1);
     }
     if (file_path == NULL || strlen(file_path) == 0)
     {
-        fprintf(stderr, "must specify a valid file path\n");
-        exit(1);
+        printf("must specify a valid file path\n");
+        exit(-1);
     }
 
     FILE* fp = fopen(file_path, "rb");
     if (fp == NULL)
     {
-        fprintf(stderr, "failed to open %s\n", file_path);
+        printf("failed to open %s\n", file_path);
         exit(1);
     }
 
-    int prev, curr;
-    if (fread(&prev, sizeof(int), 1, fp) < 1)
+    size_t typesz;
+    if (is_int) typesz = sizeof(int);
+    if (is_flt) typesz = sizeof(float);
+
+    void* prev = malloc(typesz);
+    void* curr = malloc(typesz);
+
+    if (fread(prev, typesz, 1, fp) < 1)
     {
-        fprintf(stderr, "empty data bin file\n");
+        printf("empty data bin file\n");
         exit(1);
     }
 
@@ -81,21 +127,23 @@ int main(int argc, char** argv)
     bool isordered = true;
 
     if (print_out)
-        fprintf(stdout, "%d ", prev);
-    while (fread(&curr, sizeof(int), 1, fp) == 1)
+        print_data(prev, is_int, is_flt);
+    while (fread(curr, typesz, 1, fp) == 1)
     {
         if (print_out)
-            fprintf(stdout, "%d ", curr);
+            print_data(curr, is_int, is_flt);
         cnt++;
-        if ((use_asc && !(prev <= curr)) || (use_dsc && !(prev >= curr)))
+        if ((use_asc && !cmpt(prev, curr, is_int, is_flt, true)) || (use_dsc && !cmpt(prev, curr, is_int, is_flt, false)))
         {
-            fprintf(stderr, "sequential order check failed at %d with %d and %d\n", cnt, prev, curr);
-            if (force_out)
-                break;
+            printf("sequential order check failed at %d with ", cnt);
+            print_data(prev, is_int, is_flt);
+            print_data(curr, is_int, is_flt);
+            printf("\n");
             isordered = false;
         }
 
-        prev = curr;
+        if (is_int) *((int*)prev) = *((int*)curr);
+        if (is_flt) *((float*)prev) = *((float*)curr);
     }
 
     if (isordered)
@@ -104,5 +152,7 @@ int main(int argc, char** argv)
         printf("\nsequential check passed with %d count\n", cnt);
     
     fclose(fp);
+    free(prev);
+    free(curr);
     return 0;
 }

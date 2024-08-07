@@ -1,9 +1,3 @@
-/*
- * arguments:
- * -f file path to the data bin
- * -D delete temp file after merge sort
- * -b buffer size of each segment
-*/
 #include <common_cpp.h>
 
 #include <getopt.h>
@@ -19,7 +13,40 @@ char* file_path = nullptr;
 bool delete_temp = false;
 
 // global function
-void parse_args(int argc, char** argv);
+void args_handler(
+    const int opt,
+    const int optopt,
+    const int optind,
+    char* optarg
+) {
+    switch (opt)
+    {
+    case 'f':
+        file_path = optarg;
+        break;
+    
+    case 'D':
+        delete_temp = true;
+        break;
+    
+    case 'b':
+        if ((buf_sze = atoi(optarg)) <= 0)
+        {
+            // atoi can not tell if a conversion is failed
+            fprintf(stderr, "invalid buffer size %s\n", optarg);
+            exit(1);
+        }
+        break;
+    case '?':
+        if (isprint(optopt))
+            fprintf(stderr, "Unknown option `-%c'.\n", optopt);
+        else
+            fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
+        break;
+    default:
+        abort();
+    }
+}
 
 int main(int argc, char** argv)
 {
@@ -27,7 +54,7 @@ int main(int argc, char** argv)
     using std::cerr;
     using std::endl;
 
-    parse_args(argc, argv);
+    parse_args(argc, argv, "f:Db:", &args_handler);
     cout << file_path << buf_sze << endl;
     if (buf_sze == 0 || file_path == nullptr)
     {
@@ -76,10 +103,6 @@ int main(int argc, char** argv)
         delete[] tmp_buf;
     }
     std::cout << "distributed to " << seg_cnt << " segment(s)" << std::endl;
-
-
-
-
 
 
     /*
@@ -138,9 +161,6 @@ int main(int argc, char** argv)
     }
     foutput.close();
 
-
-
-
     /*
     ============================== division ==============================
     ============================== division ==============================
@@ -164,46 +184,5 @@ int main(int argc, char** argv)
     }
 
     return 0;
-}
-
-void parse_args(int argc, char** argv)
-{
-    extern char* optarg;
-    extern int   optopt;
-    extern int   optind;
-
-    int opt;
-    while ((opt = getopt(argc, argv, "f:Db:")) != -1)
-    {
-        switch (opt)
-        {
-        case 'f':
-            file_path = optarg;
-            break;
-        
-        case 'D':
-            delete_temp = true;
-            break;
-        
-        case 'b':
-            if ((buf_sze = atoi(optarg)) <= 0)
-            {
-                // atoi can not tell if a conversion is failed
-                fprintf(stderr, "invalid buffer size %s\n", optarg);
-                exit(1);
-            }
-            break;
-        case '?':
-            if (optopt == 'o')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            else if (isprint(optopt))
-                fprintf(stderr, "Unknown option `-%c'.\n", optopt);
-            else
-                fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
-            break;
-        default:
-            abort();
-        }
-    }
 }
 

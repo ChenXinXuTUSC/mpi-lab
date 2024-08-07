@@ -2,8 +2,6 @@
 
 #include <mpi/mpi.h>
 
-#include <getopt.h>
-#include <ctype.h>
 
 // global data and option
 int buf_size = 0;
@@ -38,9 +36,7 @@ void args_handler(
         break;
     
     case '?':
-        if (optopt == 'o')
-            fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-        else if (isprint(optopt))
+        if (isprint(optopt))
             fprintf(stderr, "Unknown option `-%c'.\n", optopt);
         else
             fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
@@ -134,8 +130,6 @@ int main(int argc, char** argv)
         sort_file(input_file_path, output_file_path, buf_size, world_rank);
     }
     MPI_Barrier(MPI_COMM_WORLD); // end of data each node file sort
-
-
 
 
     // segment prepare finish, now start odd even sort algorithm

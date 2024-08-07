@@ -93,8 +93,8 @@ int main(int argc, char** argv)
 
         std::vector<int> send_data(buf_size);
         std::vector<int> recv_data(buf_size);
-        int rx_cnt;
-        int tx_cnt;
+        int rx_cnt = 0;
+        int tx_cnt = 0;
         do {
             if (world_rank == 0)
             {
@@ -144,13 +144,11 @@ int main(int argc, char** argv)
     {
         std::vector<int> send_data(buf_size);
         std::vector<int> recv_data(buf_size);
-        int rx_cnt;
-        int tx_cnt;
+        int rx_cnt = 0;
+        int tx_cnt = 0;
 
         for (int i = 2; i <= world_size; i *= 2)
         {
-            // if (world_rank == 0)
-            //     printf("=========================== stride %d ===========================\n", i);
             if (world_rank % i == 0)
             {
                 // this node should receive from partner
