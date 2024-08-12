@@ -2,6 +2,16 @@
 
 #include <mpi/mpi.h>
 
+#ifdef USE_INT
+    typedef int dtype;
+    #define MPI_DTYPE MPI_INT
+#endif
+
+#ifdef USE_FLT
+    typedef float dtype;
+    #define MPI_DTYPE MPI_FLOAT
+#endif
+
 
 // global data and option
 int buf_size = 0;
@@ -83,34 +93,34 @@ int main(int argc, char** argv)
             MPI_Abort(MPI_COMM_WORLD, 2);
         }
 
-        std::vector<int> tx_buf(buf_size);
-        std::vector<int> rx_buf(buf_size);
+        std::vector<dtype> tx_buf(buf_size);
+        std::vector<dtype> rx_buf(buf_size);
         int rx_cnt;
         int tx_cnt;
         do {
             if (world_rank == 0)
             {
-                finput.read(reinterpret_cast<char*>(tx_buf.data()), sizeof(int) * buf_size);
-                rx_cnt = finput.gcount() / sizeof(int);
+                finput.read(reinterpret_cast<char*>(tx_buf.data()), sizeof(dtype) * buf_size);
+                rx_cnt = finput.gcount() / sizeof(dtype);
             }
             // every node receive signal from main node
-            MPI_Bcast(&rx_cnt, 1, MPI_INT, 0, MPI_COMM_WORLD);
+            MPI_Bcast(&rx_cnt, 1, MPI_DTYPE, 0, MPI_COMM_WORLD);
             if (rx_cnt == 0) break; // every node exit distribution stage
 
             tx_cnt = (rx_cnt - 1) / world_size + 1; // divided by each process node, (a-1)/b+1 is ceiling formula
             MPI_Scatter(
                 tx_buf.data(),
                 tx_cnt,
-                MPI_INT,
+                MPI_DTYPE,
                 rx_buf.data(),
                 tx_cnt,
-                MPI_INT,
+                MPI_DTYPE,
                 0,
                 MPI_COMM_WORLD
             );
 
             // each node dump the receive data to disk
-            foutput.write(reinterpret_cast<char*>(rx_buf.data()), sizeof(int) * tx_cnt);
+            foutput.write(reinterpret_cast<char*>(rx_buf.data()), sizeof(dtype) * tx_cnt);
         } while (rx_cnt == buf_size);
 
         if (world_rank == 0)
@@ -139,8 +149,8 @@ int main(int argc, char** argv)
 
         int rx_cnt = 0;
         int tx_cnt = 0;
-        std::vector<int> rx_buf(buf_size);
-        std::vector<int> tx_buf(buf_size);
+        std::vector<dtype> rx_buf(buf_size);
+        std::vector<dtype> tx_buf(buf_size);
 
         for (int phase = 0; phase < world_size; ++phase)
         {
@@ -185,19 +195,19 @@ int main(int argc, char** argv)
             do {
                 if (finput.is_open())
                 {
-                    finput.read(reinterpret_cast<char*>(tx_buf.data()), sizeof(int) * buf_size);
-                    tx_cnt = finput.gcount() / sizeof(int);
+                    finput.read(reinterpret_cast<char*>(tx_buf.data()), sizeof(dtype) * buf_size);
+                    tx_cnt = finput.gcount() / sizeof(dtype);
                     tx_ttl += tx_cnt;
                     if (tx_cnt == 0) finput.close();
                 }
                 MPI_Sendrecv(
-                    tx_buf.data(), tx_cnt,   MPI_INT, partner_rank, 0, // send to partner
-                    rx_buf.data(), buf_size, MPI_INT, partner_rank, 0, // receive from partner
+                    tx_buf.data(), tx_cnt,   MPI_DTYPE, partner_rank, 0, // send to partner
+                    rx_buf.data(), buf_size, MPI_DTYPE, partner_rank, 0, // receive from partner
                     MPI_COMM_WORLD, &status
                 );
                 MPI_Get_count(&status, MPI_INT, &rx_cnt);
                 rx_ttl += rx_cnt;
-                foutput.write(reinterpret_cast<char*>(rx_buf.data()), sizeof(int) * rx_cnt);
+                foutput.write(reinterpret_cast<char*>(rx_buf.data()), sizeof(dtype) * rx_cnt);
             } while (tx_cnt == buf_size || rx_cnt == buf_size);
             foutput.close();
 
@@ -222,12 +232,12 @@ int main(int argc, char** argv)
                 if (world_rank < partner_rank)
                 {
                     // keep the smaller part
-                    c_truncate(input_file_path1.c_str(), sizeof(int), 0     , tx_ttl, buf_size);
+                    c_truncate(input_file_path1.c_str(), sizeof(dtype), 0     , tx_ttl, buf_size);
                 }
                 else
                 {
                     // keep the larger part
-                    c_truncate(input_file_path1.c_str(), sizeof(int), rx_ttl, tx_ttl, buf_size);
+                    c_truncate(input_file_path1.c_str(), sizeof(dtype), rx_ttl, tx_ttl, buf_size);
                 }
             }
 

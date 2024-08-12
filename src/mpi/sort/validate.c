@@ -2,12 +2,20 @@
 
 #include <string.h>
 
+#ifdef USE_INT
+    typedef int dtype;
+    const char* dtype_printfstr = "%d ";
+#endif
+
+#ifdef USE_FLT
+    typedef float dtype;
+    const char* dtype_printfstr = "%f ";
+#endif
+
 char* file_path;
 bool use_asc = false;
 bool use_dsc = false;
 bool print_out = false;
-bool is_int = false;
-bool is_flt = false;
 
 void args_handler(
     const int opt,
@@ -28,13 +36,6 @@ void args_handler(
     case 'P':
         print_out = true;
         break;
-
-    case 'F':
-        is_flt = true;
-        break;
-    
-    case 'I':
-        is_int = true;
     
     case 'f':
         file_path = optarg;
@@ -51,50 +52,12 @@ void args_handler(
     }
 }
 
-void print_data(void* data, bool is_int, bool is_flt) {
-    if ((is_int && is_flt) || (!is_int && !is_flt) || data == NULL)
-    {
-        printf("must select only 1 data type\n");
-        return;
-    }
-    if (is_int) printf("%d ", *((int*)data));
-    if (is_flt) printf("%f ", *((float*)data));
-}
-
-bool cmpt(void* d1, void* d2, bool is_int, bool is_flot, bool asc)
-{
-    if ((is_int && is_flt) || (!is_int && !is_flt) || d1 == NULL || d2 == NULL)
-    {
-        printf("must select only 1 data type\n");
-        return false;
-    }
-    if (is_int)
-    {
-        int di1 = *((int*)d1);
-        int di2 = *((int*)d2);
-        if (asc) return di1 <= di2;
-        else return di1 >= di2;
-    }
-    if (is_flt)
-    {
-        float df1 = *((float*)d1);
-        float df2 = *((float*)d2);
-        if (asc) return df1 <= df2;
-        else return df1 >= df2;
-    }
-}
-
 int main(int argc, char** argv)
 {
     parse_args(argc, argv, "ADPFIf:", &args_handler);
     if ((use_asc && use_dsc) || (!use_asc && !use_dsc))
     {
         printf("must select only 1 validate mode\n");
-        exit(-1);
-    }
-    if ((is_int && is_flt) || (!is_int && !is_flt))
-    {
-        printf("must select only 1 data type\n");
         exit(-1);
     }
     if (file_path == NULL || strlen(file_path) == 0)
@@ -110,14 +73,11 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    size_t typesz;
-    if (is_int) typesz = sizeof(int);
-    if (is_flt) typesz = sizeof(float);
 
-    void* prev = malloc(typesz);
-    void* curr = malloc(typesz);
+    dtype prev;
+    dtype curr;
 
-    if (fread(prev, typesz, 1, fp) < 1)
+    if (fread(&prev, sizeof(dtype), 1, fp) < 1)
     {
         printf("empty data bin file\n");
         exit(1);
@@ -127,32 +87,28 @@ int main(int argc, char** argv)
     bool isordered = true;
 
     if (print_out)
-        print_data(prev, is_int, is_flt);
-    while (fread(curr, typesz, 1, fp) == 1)
+        printf(dtype_printfstr, prev);
+    while (fread(&curr, sizeof(dtype), 1, fp) == 1)
     {
         if (print_out)
-            print_data(curr, is_int, is_flt);
+            printf(dtype_printfstr, curr);
         cnt++;
-        if ((use_asc && !cmpt(prev, curr, is_int, is_flt, true)) || (use_dsc && !cmpt(prev, curr, is_int, is_flt, false)))
+        if ((use_asc && prev > curr) || (use_dsc && prev < curr))
         {
             printf("sequential order check failed at %d with ", cnt);
-            print_data(prev, is_int, is_flt);
-            print_data(curr, is_int, is_flt);
+            printf(dtype_printfstr, curr);
             printf("\n");
             isordered = false;
         }
 
-        if (is_int) *((int*)prev) = *((int*)curr);
-        if (is_flt) *((float*)prev) = *((float*)curr);
+        prev = curr;
     }
 
     if (isordered)
         printf("\nsequential check passed with %d count\n", cnt);
     else
-        printf("\nsequential check passed with %d count\n", cnt);
+        printf("\nsequential check failed with %d count\n", cnt);
     
     fclose(fp);
-    free(prev);
-    free(curr);
     return 0;
 }

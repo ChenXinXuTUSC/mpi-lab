@@ -63,7 +63,8 @@
         "ratio": "cpp",
         "iomanip": "cpp",
         "sstream": "cpp",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "limits.h": "c"
     },
     "cmake.configureOnOpen": true,
     "cmake.setBuildTypeOnMultiConfig": true,
