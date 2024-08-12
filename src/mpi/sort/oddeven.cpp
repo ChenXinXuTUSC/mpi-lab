@@ -137,7 +137,7 @@ int main(int argc, char** argv)
         std::string input_file_path = std::string(file_path);
         sprintf(file_path, "data/mpi/node%d/sorted.bin", world_rank);
         std::string output_file_path = std::string(file_path);
-        sort_file(input_file_path, output_file_path, buf_size, world_rank);
+        sort_file<dtype>(input_file_path, output_file_path, buf_size, world_rank);
     }
     MPI_Barrier(MPI_COMM_WORLD); // end of data each node file sort
 
@@ -222,7 +222,7 @@ int main(int argc, char** argv)
 
             sprintf(file_path, "data/mpi/node%d/merge.bin", world_rank);
             std::string merge_file_path = std::string(file_path);
-            kmerge_file(input_file_list, merge_file_path);
+            kmerge_file<dtype>(input_file_list, merge_file_path);
             std::filesystem::rename(merge_file_path, input_file_path1); // replace the original "sorted.bin"
 
             // truncate corresponding part of each node
@@ -273,10 +273,10 @@ int main(int argc, char** argv)
             int in_cnt = 0;
             int in_ttl = 0;
             do {
-                finput.read(reinterpret_cast<char*>(in_buf.data()), sizeof(int) * buf_size);
-                in_cnt = finput.gcount() / sizeof(int);
+                finput.read(reinterpret_cast<char*>(in_buf.data()), sizeof(dtype) * buf_size);
+                in_cnt = finput.gcount() / sizeof(dtype);
                 in_ttl += in_cnt;
-                foutput.write(reinterpret_cast<char*>(in_buf.data()), sizeof(int) * in_cnt);
+                foutput.write(reinterpret_cast<char*>(in_buf.data()), sizeof(dtype) * in_cnt);
             } while (in_cnt == buf_size);
             // printf("%s %d\n", file_path, in_ttl);
             finput.close();

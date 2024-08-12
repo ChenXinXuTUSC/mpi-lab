@@ -1,10 +1,5 @@
 #include <common_cpp.h>
 
-#include <functional>
-#include <memory>
-#include <filesystem>
-
-#include <myheap.h>
 
 void parse_args(
     int argc, char** argv,
@@ -27,68 +22,6 @@ void parse_args(
         args_handler(opt, optopt, optind, optarg);
     }
 }
-
-
-void kmerge_file(
-    std::vector<std::string> input_file_list,
-    std::string output_file_path
-)
-{
-    std::function<
-        bool(
-            const std::pair<std::shared_ptr<std::ifstream>, int>&,
-            const std::pair<std::shared_ptr<std::ifstream>, int>&
-        )
-    > cmp = [](
-        const std::pair<std::shared_ptr<std::ifstream>, int>& fp1,
-        const std::pair<std::shared_ptr<std::ifstream>, int>& fp2
-    ) {
-        return fp1.second > fp2.second; // ascend heap, not descend heap
-    };
-    heap<std::pair<std::shared_ptr<std::ifstream>, int>, decltype(cmp)> ksegheap(cmp);
-
-    for (const std::string input_file_path : input_file_list)
-    {
-        std::shared_ptr<std::ifstream> finput = std::make_shared<std::ifstream>(
-            input_file_path, std::ifstream::in | std::ifstream::binary
-        );
-        if (!finput->is_open()) {
-            fprintf(stderr, "failed to open %s\n", input_file_path.c_str());
-            continue;
-        }
-
-        int finput_head;
-        finput->read(reinterpret_cast<char*>(&finput_head), 1 * sizeof(int));
-        if (finput->gcount() == 0)
-            continue;
-        // can't use std::pair<type1, type2> to construct
-        // there is no such constructor for std::pair
-        ksegheap.push(std::make_pair(finput, finput_head));
-    }
-
-    std::ofstream foutput(output_file_path, std::ofstream::out | std::ofstream::binary);
-    std::filesystem::create_directories(std::filesystem::path(output_file_path).parent_path());
-    if (!foutput.is_open())
-    {
-        fprintf(stderr, "failed to open kmerge file output file %s\n", output_file_path.c_str());
-        exit(4);
-    }
-
-    while (!ksegheap.empty())
-    {
-        auto [finput, finput_head] = ksegheap.top();
-        ksegheap.pop();
-        foutput.write(reinterpret_cast<char*>(&finput_head), 1 * sizeof(int));
-
-        finput->read(reinterpret_cast<char*>(&finput_head), 1 * sizeof(int));
-        if (finput->gcount() == 0)
-            finput->close();
-        else
-            ksegheap.push(std::make_pair(finput, finput_head));
-    }
-    foutput.close();
-}
-
 
 
 void c_truncate(

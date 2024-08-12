@@ -1,14 +1,17 @@
 #include <common_cpp.h>
-#include <getopt.h>
-#include <ctype.h>
 
 #include <mpi/mpi.h>
 
-#include <functional>
-#include <memory>
-#include <myheap.h>
 
-#include <filesystem>
+#ifdef USE_INT
+    typedef int dtype;
+    #define MPI_DTYPE MPI_INT
+#endif
+
+#ifdef USE_FLT
+    typedef float dtype;
+    #define MPI_DTYPE MPI_FLOAT
+#endif
 
 // global data and option
 int buf_size = 0;
@@ -135,7 +138,7 @@ int main(int argc, char** argv)
         std::string input_file_path = std::string(file_path);
         sprintf(file_path, "data/mpi/node%d/sorted.bin", world_rank);
         std::string output_file_path = std::string(file_path);
-        sort_file(input_file_path, output_file_path, buf_size, world_rank);
+        sort_file<dtype>(input_file_path, output_file_path, buf_size, world_rank);
     }
     MPI_Barrier(MPI_COMM_WORLD); // end of data each node file sort
 
@@ -184,7 +187,7 @@ int main(int argc, char** argv)
                 input_file_list.emplace_back(input_file_path2);
                 sprintf(file_path, "data/mpi/node%d/merge.bin", world_rank);
                 std::string merge_file_path = std::string(file_path);
-                kmerge_file(input_file_list, merge_file_path);
+                kmerge_file<dtype>(input_file_list, merge_file_path);
                 // prepare for next merge read
                 std::filesystem::rename(merge_file_path, input_file_path1);
             }
