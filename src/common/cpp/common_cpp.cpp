@@ -24,6 +24,22 @@ void parse_args(
 }
 
 
+void clean_up(std::vector<std::string> dirs)
+{
+    for (const std::string& dir_path : dirs)
+    {
+        try
+        {
+            if (std::filesystem::exists(dir_path))
+                std::filesystem::remove_all(dir_path);
+        }
+        catch (const std::filesystem::filesystem_error& e)
+        {
+            std::cerr << "remove temporary files error: " << e.what() << std::endl;
+        }
+    }
+}
+
 void c_truncate(
     const char* file_path,
     const int typesz,

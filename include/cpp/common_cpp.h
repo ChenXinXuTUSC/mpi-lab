@@ -45,6 +45,8 @@ void parse_args(
     )
 );
 
+void clean_up(std::vector<std::string> dirs);
+
 template<typename dtype>
 void kmerge_file(
     std::vector<std::string> input_file_list,
