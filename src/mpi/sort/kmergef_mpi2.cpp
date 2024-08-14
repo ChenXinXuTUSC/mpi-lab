@@ -2,6 +2,11 @@
 
 #include <mpi/mpi.h>
 
+namespace fs = std::filesystem;
+using std::endl;
+using std::cout;
+using std::cerr;
+using std::cin;
 
 #ifdef USE_INT
     typedef int dtype;
@@ -68,6 +73,12 @@ int main(int argc, char** argv)
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+    if (world_size % 2 != 0)
+    {
+        cerr << "kmerge does not support non-even distribution" << endl;
+        MPI_Abort(MPI_COMM_WORLD, -1);
+    }
 
 
     // distribute data to all nodes

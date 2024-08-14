@@ -95,102 +95,11 @@ int main(int argc, char** argv)
     internal_sort("recv.bin", "sorted.bin", buf_size);
     MPI_Barrier(MPI_COMM_WORLD); // end of data each node file sort
 
-    // step3: segment prepare finish, now start odd even sort algorithm
+    // step3: each node perform regular sampling
     {
-        int partner_rank;
-
-        int rx_cnt = 0;
-        int tx_cnt = 0;
-        std::vector<dtype> rx_buf(buf_size);
-        std::vector<dtype> tx_buf(buf_size);
-
-        for (int phase = 0; phase < world_size; ++phase)
-        {
-            if (world_rank % 2 == 0)
-            {
-                if (phase % 2 == 0) partner_rank = world_rank + 1;
-                else                partner_rank = world_rank - 1;
-            }
-            else
-            {
-                if (phase % 2 == 0) partner_rank = world_rank - 1;
-                else                partner_rank = world_rank + 1;
-            }
-            if (partner_rank < 0 || partner_rank == world_size) continue; // idle pass, no partner
-            // printf("[phase %d node%d] %d<->%d\n", phase, world_rank, world_rank, partner_rank);
-
-            fs::path base = "data/node";
-            // preparation for MPI_Sendrecv
-            // input file
-            fs::path input_self_path = base / std::to_string(world_rank) / "sorted.bin";
-            std::ifstream finput(input_self_path, std::ifstream::binary);
-            if (!finput.is_open())
-            {
-                cerr << "node" << world_rank << " failed to open" << input_self_path << " during phase" << phase << endl;
-                MPI_Abort(MPI_COMM_WORLD, 1);
-            }
-            // output file
-            fs::path output_partner_path = base / std::to_string(world_rank) / "sorted_partner.bin";
-            fs::create_directories(output_partner_path.parent_path());
-            std::ofstream foutput(output_partner_path, std::ofstream::binary);
-            if (!foutput.is_open())
-            {
-                cerr << "node" << world_rank << " failed to open" << output_partner_path << " during phase" << phase << endl;
-                MPI_Abort(MPI_COMM_WORLD, 2);
-            }
-
-
-            // record the send and recv data amount
-            int tx_ttl = 0;
-            int rx_ttl = 0;
-            // start data exchange
-            MPI_Status status;
-            do {
-                if (finput.is_open())
-                {
-                    finput.read(reinterpret_cast<char*>(tx_buf.data()), sizeof(dtype) * buf_size);
-                    tx_cnt = finput.gcount() / sizeof(dtype);
-                    tx_ttl += tx_cnt;
-                    if (tx_cnt == 0) finput.close();
-                }
-                MPI_Sendrecv(
-                    tx_buf.data(), tx_cnt,   MPI_DTYPE, partner_rank, 0, // send to partner
-                    rx_buf.data(), buf_size, MPI_DTYPE, partner_rank, 0, // receive from partner
-                    MPI_COMM_WORLD, &status
-                );
-                MPI_Get_count(&status, MPI_INT, &rx_cnt);
-                rx_ttl += rx_cnt;
-                foutput.write(reinterpret_cast<char*>(rx_buf.data()), sizeof(dtype) * rx_cnt);
-            } while (tx_cnt == buf_size || rx_cnt == buf_size);
-            foutput.close();
-
-            // start external merge
-            std::vector<std::string> input_file_list {
-                input_self_path.c_str(),
-                output_partner_path.c_str()
-            };
-            fs::path merge_path = base / std::to_string(world_rank) / "merge.bin";
-            kmerge_file<dtype>(input_file_list, merge_path.c_str());
-            std::filesystem::rename(merge_path, input_self_path); // replace the original "sorted.bin"
-
-            // truncate corresponding part of each node
-            {
-                // tx_ttl represents node's segment size
-                // rx_ttl represents partner's segment size
-                if (world_rank < partner_rank)
-                {
-                    // keep the smaller part
-                    c_truncate(input_self_path.c_str(), sizeof(dtype), 0     , tx_ttl, buf_size);
-                }
-                else
-                {
-                    // keep the larger part
-                    c_truncate(input_self_path.c_str(), sizeof(dtype), rx_ttl, tx_ttl, buf_size);
-                }
-            }
-        }
+        
     }
-    MPI_Barrier(MPI_COMM_WORLD);
+    
 
 
     if (world_rank == master_rank)

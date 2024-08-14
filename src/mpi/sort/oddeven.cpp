@@ -283,16 +283,14 @@ void scatter_data(
 
         tx_cnt = (rx_cnt - 1) / world_size + 1; // divided by each process node, (a-1)/b+1 is ceiling formula
         MPI_Scatter(
-            tx_buf.data(),
-            tx_cnt,
-            MPI_DTYPE,
-            rx_buf.data(),
-            tx_cnt,
-            MPI_DTYPE,
-            source_rank,
-            MPI_COMM_WORLD
+            tx_buf.data(), tx_cnt, MPI_DTYPE,
+            rx_buf.data(), tx_cnt, MPI_DTYPE,
+            source_rank, MPI_COMM_WORLD
         );
 
+        // last node may receive incomplete data
+        if (world_rank == world_size - 1)
+            tx_cnt = rx_cnt - tx_cnt * (world_size - 1);
         // each node dump the receive data to disk
         foutput.write(reinterpret_cast<char*>(rx_buf.data()), sizeof(dtype) * tx_cnt);
     } while (rx_cnt == buf_size);
