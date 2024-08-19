@@ -81,8 +81,8 @@ int main(int argc, char** argv)
     if (use_exp_G) epl = pow(2, 30);
     if (!epl)
     {
-        printf("no exponent specified, abort...");
-        exit(-1);
+        printf("no exponent specified, set to 2^0=1");
+        epl = 1;
     }
 
     char filename[128];
