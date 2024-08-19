@@ -96,42 +96,90 @@ int main(int argc, char** argv)
     MPI_Barrier(MPI_COMM_WORLD); // end of data each node file sort
 
     // step3: each node perform regular sampling
+    std::vector<dtype> sample_list;
     {
-        
-    }
-    
-
-
-    if (world_rank == master_rank)
-    {
-        std::vector<int> in_buf(buf_size);
+        int tx_cnt = 0; // record each node's send count
 
         fs::path base = "data/node";
-        fs::create_directories("data/output");
-        std::ofstream foutput("data/output/final.bin", std::ofstream::binary);
-        // only need one process to merge all sorted segments
+        fs::path input_path = base / std::to_string(world_rank) / "sorted.bin";
+        std::ifstream finput(input_path, std::ifstream::binary);
+        if (!finput.is_open())
+        {
+            cerr << "node" << world_rank << " failed to open " << input_path << endl;
+            MPI_Abort(MPI_COMM_WORLD, 1);
+        }
+
+        dtype temp_data;
+        size_t item_cnt = fs::file_size(input_path) / sizeof(dtype);
+        // cout << "node" << world_rank << " sampling: ";
         for (int i = 0; i < world_size; ++i)
         {
-            fs::path input_path = base / std::to_string(i) / "sorted.bin";
-            std::ifstream finput(input_path, std::ifstream::binary);
-            if (!finput.is_open())
-            {
-                cerr << "master failed to open reduce seg " << input_path << endl; 
-                exit(1);
-            }
-
-            int in_cnt = 0;
-            int in_ttl = 0;
-            do {
-                finput.read(reinterpret_cast<char*>(in_buf.data()), sizeof(dtype) * buf_size);
-                in_cnt = finput.gcount() / sizeof(dtype);
-                in_ttl += in_cnt;
-                foutput.write(reinterpret_cast<char*>(in_buf.data()), sizeof(dtype) * in_cnt);
-            } while (in_cnt == buf_size);
-            finput.close();
+            size_t idx = (item_cnt / world_size) * i;
+            finput.seekg(idx * sizeof(dtype), std::ios::beg);
+            finput.read(reinterpret_cast<char*>(&temp_data), sizeof(dtype) * 1);
+            sample_list.emplace_back(temp_data);
+            // cout << temp_data << ' ';
         }
-        foutput.close();
+        // cout << endl;
+        finput.close();
     }
+
+    // step4: master gather all node's sample result
+    std::vector<dtype> all_sample;
+    {
+        int tx_cnt = sample_list.size();
+
+        // get count from each slave node
+        std::vector<int> all_sample_cnt;
+        std::vector<int> all_sample_off;
+        {
+            // every node other than master send its count
+            if (world_rank != master_rank)
+                MPI_Send(&tx_cnt, 1, MPI_INT, master_rank, 0, MPI_COMM_WORLD);
+            // only master gathers all other nodes' count
+            if (world_rank == master_rank)
+            {
+                all_sample_cnt.resize(world_size);
+                all_sample_off.resize(world_size);
+
+                all_sample_cnt[master_rank] = tx_cnt;
+                for (int i = 0; i < world_size; ++i)
+                {
+                    all_sample_off[i] = i * world_size; // set offset
+                    if (i == master_rank) continue;
+                    // set count
+                    MPI_Recv(&all_sample_cnt[i], 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                }
+            }
+        }
+        if (world_rank == master_rank) all_sample.resize(world_size * world_size);
+        MPI_Gatherv(
+            sample_list.data(), world_size, MPI_DTYPE,
+            all_sample.data(), all_sample_cnt.data(), all_sample_off.data(), MPI_INT,
+            master_rank, MPI_COMM_WORLD
+        );
+    }
+    MPI_Barrier(MPI_COMM_WORLD); // end of regular sampling
+    if (world_rank == master_rank)
+    {
+        cout << "node" << master_rank << " receive samples:\n";
+        for (const dtype& sample : all_sample)
+            cout << sample << ' ';
+    }
+
+    // master node select pivots and broadcast
+    // {
+    //     std::vector<dtype> rs_list;
+    //     rs_list.resize(world_size);
+    //     if (world_rank == master_rank)
+    //     {
+    //         std::sort(all_sample.begin(), all_sample.end());
+    //         for (int i = 1; i < world_size; ++i)
+    //             rs_list[(all_sample.size() / world_size) * i];
+    //         MPI_Bcast(rs_list.data(), world_size, MPI_DTYPE, master_rank, MPI_COMM_WORLD);
+    //     }
+    // }
+    // MPI_Barrier(MPI_COMM_WORLD);
 
 
     if (delete_temp && world_rank == master_rank)
@@ -165,8 +213,7 @@ void scatter_data(
     }
 
     fs::path base_path = "data/node";
-    fs::path node_path = std::to_string(world_rank);
-    fs::path output_path = base_path / node_path / output_name;
+    fs::path output_path = base_path / std::to_string(world_rank) / output_name;
     fs::create_directories(output_path.parent_path()); // return false if dir already exists
     std::ofstream foutput(output_path, std::ofstream::binary);
     if (!foutput.is_open())
@@ -192,16 +239,14 @@ void scatter_data(
 
         tx_cnt = (rx_cnt - 1) / world_size + 1; // divided by each process node, (a-1)/b+1 is ceiling formula
         MPI_Scatter(
-            tx_buf.data(),
-            tx_cnt,
-            MPI_DTYPE,
-            rx_buf.data(),
-            tx_cnt,
-            MPI_DTYPE,
-            source_rank,
-            MPI_COMM_WORLD
+            tx_buf.data(), tx_cnt, MPI_DTYPE,
+            rx_buf.data(), tx_cnt, MPI_DTYPE,
+            source_rank, MPI_COMM_WORLD
         );
 
+        // last node may receive incomplete data
+        if (world_rank == world_size - 1)
+            tx_cnt = rx_cnt - tx_cnt * (world_size - 1);
         // each node dump the receive data to disk
         foutput.write(reinterpret_cast<char*>(rx_buf.data()), sizeof(dtype) * tx_cnt);
     } while (rx_cnt == buf_size);
@@ -217,10 +262,9 @@ void internal_sort(
     const int& buf_size
 ) {
     fs::path base_path = "data/node";
-    fs::path node_path = std::to_string(world_rank);
 
-    fs::path input_path = base_path / node_path / input_name;
-    fs::path output_path = base_path / node_path / output_name;
+    fs::path input_path = base_path / std::to_string(world_rank) / input_name;
+    fs::path output_path = base_path / std::to_string(world_rank) / output_name;
 
     sort_file<dtype>(input_path.c_str(), output_path.c_str(), buf_size, world_rank);
 }
