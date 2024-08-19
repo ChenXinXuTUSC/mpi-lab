@@ -134,22 +134,21 @@ void sort_file(
         exit(1);
     }
 
+    // distribute to segments
+    std::vector<dtype> rx_buf(internal_buf_size);
+    std::filesystem::path base = "data/node";
     int seg_cnt = 0;
     int rx_cnt;
-    std::vector<dtype> rx_buf(internal_buf_size);
-    char file_path[128];
-
-    // distribute to segments
     do {
         finput.read(reinterpret_cast<char*>(rx_buf.data()), sizeof(dtype) * internal_buf_size);
         rx_cnt = finput.gcount() / sizeof(dtype);
         if (rx_cnt == 0) break;
 
-        std::sort(rx_buf.begin(), rx_buf.end());
+        std::sort(rx_buf.begin(), rx_buf.begin() + rx_cnt);
 
-        sprintf(file_path, "data/temp/node%d/seg%d.bin", proc_mark, seg_cnt);
-        std::filesystem::create_directories(std::filesystem::path(file_path).parent_path());
-        std::ofstream foutput(file_path, std::ofstream::out | std::ofstream::binary);
+        std::filesystem::path output_path = base / std::to_string(proc_mark) / "seg" / (std::to_string(seg_cnt) + std::string(".bin"));
+        std::filesystem::create_directories(output_path.parent_path());
+        std::ofstream foutput(output_path, std::ofstream::binary);
         if (!foutput.is_open())
         {
             fprintf(stderr, "node%d failed to dump sorted sub-segment %d", proc_mark, seg_cnt);
@@ -167,8 +166,8 @@ void sort_file(
     std::vector<std::string> input_file_list;
     for (int i = 0; i < seg_cnt; ++i)
     {
-        sprintf(file_path, "data/temp/node%d/seg%d.bin", proc_mark, i);
-        input_file_list.emplace_back(std::string(file_path));
+        std::filesystem::path input_path = base / std::to_string(proc_mark) / "seg" / (std::to_string(i) + std::string(".bin"));
+        input_file_list.emplace_back(input_path.string());
     }
     kmerge_file<dtype>(input_file_list, output_file_path);
 }
