@@ -9,6 +9,7 @@
 #endif
 
 char* file_path;
+bool print_out;
 
 void args_handler(
     const int opt,
@@ -20,6 +21,10 @@ void args_handler(
     {
     case 'f':
         file_path = optarg;
+        break;
+
+    case 'P':
+        print_out = true;
         break;
     
     case '?':
@@ -37,7 +42,7 @@ void args_handler(
 
 int main(int argc, char** argv)
 {
-    parse_args(argc, argv, "f:", &args_handler);
+    parse_args(argc, argv, "Pf:", &args_handler);
 
     FILE* fp = fopen(file_path, "rb");
     if (fp == NULL)
@@ -53,16 +58,19 @@ int main(int argc, char** argv)
     while (fread(&data, sizeof(dtype), 1, fp) == 1)
     {
         cnt++;
-        #ifdef USE_INT
-            printf("%d ", data);
-        #endif
-        #ifdef USE_FLT
-            printf("%f ", data);
-        #endif
+        if (print_out)
+        {
+            #ifdef USE_INT
+                printf("%d ", data);
+            #endif
+            #ifdef USE_FLT
+                printf("%f ", data);
+            #endif
+        }
     }
 
     if (feof(fp))
-        printf("\nfinish reading data bin, total %d\n", cnt);
+        printf("\nfinish reading %s, total %d\n", file_path, cnt);
     else
         printf("error reading data bin\n");
 

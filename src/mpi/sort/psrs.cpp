@@ -86,6 +86,15 @@ int main(int argc, char** argv)
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
+    fs::path log_path = fs::path("log") / "node" / std::to_string(world_rank) / "run.log";
+    fs::create_directories(log_path.parent_path());
+    std::ofstream flogout(log_path, std::ofstream::trunc);
+    if (!flogout.is_open())
+    {
+        cerr << "node" << world_rank << " failed to open log file" << endl;
+        MPI_Abort(MPI_COMM_WORLD, -1);
+    }
+
     // step1: distribute data to all nodes
     scatter_data(bin_data_path, "recv.bin", master_rank);
     MPI_Barrier(MPI_COMM_WORLD); // end of data distribution
@@ -189,11 +198,8 @@ int main(int argc, char** argv)
 
     // step6: each node send corresponding segment to other corresponding nodes
     {
-        // cout << "node" << world_rank << "receive pivot_list: ";
-        // for (const dtype& dd : pivot_list)
-        //     cout << dd << ' ';
-        // cout << endl;
         fs::path base = "data/node";
+
         fs::path input_path = base / std::to_string(world_rank) / "sorted.bin";
         std::ifstream finput(input_path, std::ifstream::binary);
         if (!finput.is_open())
@@ -204,8 +210,7 @@ int main(int argc, char** argv)
 
         // prepare read head for each segment
         std::vector<std::shared_ptr<std::ifstream>> read_headp_list;
-
-        std::vector<int> all_send_cnt(world_size);
+        std::vector<int> all_send_tlt(world_size);
         int pivot_idx = 0;
         dtype hold;
         int recv_cnt = 0;
@@ -221,42 +226,112 @@ int main(int argc, char** argv)
                 // enter the next segment, before this operation, prepare
                 // the head for the current segment
                 std::shared_ptr<std::ifstream> headp = std::make_shared<std::ifstream>(input_path, std::ifstream::binary);
-                headp->seekg((recv_tlt - all_send_cnt[pivot_idx]) * sizeof(dtype), std::ifstream::beg);
+                headp->seekg((recv_tlt - all_send_tlt[pivot_idx]) * sizeof(dtype), std::ifstream::beg);
                 read_headp_list.emplace_back(headp); // no copy constructor but move constructor
 
                 pivot_idx++;
             }
-            all_send_cnt[pivot_idx]++;
+            all_send_tlt[pivot_idx]++;
         } while (recv_cnt > 0);
+        // don't forget the last segment
         {
-            // don't forget the last segment
             std::shared_ptr<std::ifstream> headp = std::make_shared<std::ifstream>(input_path, std::ifstream::binary);
-            headp->seekg((recv_tlt - all_send_cnt[pivot_idx]) * sizeof(dtype), std::ifstream::beg);
+            headp->seekg((recv_tlt - all_send_tlt[pivot_idx]) * sizeof(dtype), std::ifstream::beg);
             read_headp_list.push_back(headp);
         }
         finput.close();
 
+
+
         // broadcast the total receive amount to each node
-        std::vector<int> all_recv_cnt(world_size);
+        std::vector<int> all_recv_tlt(world_size);
         MPI_Alltoall(
-            all_send_cnt.data(), 1, MPI_INT,
-            all_recv_cnt.data(), 1, MPI_INT,
+            all_send_tlt.data(), 1, MPI_INT,
+            all_recv_tlt.data(), 1, MPI_INT,
             MPI_COMM_WORLD
         );
-        // cout << "node" << world_rank << " receive: ";
-        // for (const int& x : all_recv_cnt) cout << x << ' ';
-        // cout << "total " << std::accumulate(all_recv_cnt.begin(), all_recv_cnt.end(), 0);
-        // cout << endl;
-        // MPI_Finalize();
-        // return 0;
 
-
+        int max_seg_len = buf_size / world_size;
         std::vector<dtype> send_buf(buf_size);
-        int seg_len = buf_size / world_size;
-        do {
+        std::vector<dtype> recv_buf(buf_size);
+        std::vector<int> all_send_cnt(world_size);
+        std::vector<int> all_recv_cnt(world_size);
+        std::vector<int> buf_offset(world_size);
+        for (int i = 0; i < world_size; ++i)
+            buf_offset[i] = i * max_seg_len;
 
-        } while (true);
+        fs::path seg_dir = base / std::to_string(world_rank) / "seg";
+        fs::remove_all(seg_dir); // in case some other function create files with same name
+        fs::create_directories(seg_dir);
+        if (!fs::exists(seg_dir))
+        {
+            cerr << "node" << world_rank << " failed to create segment dir\n";
+            MPI_Abort(MPI_COMM_WORLD, 2);
+        }
+
+        int round = 1;
+        do {
+            std::fill(all_send_cnt.begin(), all_send_cnt.end(), 0);
+            std::fill(all_recv_cnt.begin(), all_recv_cnt.end(), 0);
+            // prepare for MPI_Alltoallv
+            // different nodes may have different amount of segments
+
+            // prepare for send 
+            for (int i = 0; i < read_headp_list.size(); ++i)
+            {
+                all_send_cnt[i] = min(max_seg_len, all_send_tlt[i]);
+                all_send_tlt[i] -= all_send_cnt[i];
+                read_headp_list[i]->read(
+                    reinterpret_cast<char*>(send_buf.data() + i * max_seg_len), // buffer location
+                    sizeof(dtype) * all_send_cnt[i] // amount of bytes to be read
+                );
+            }
+            // prepare for recv
+            MPI_Alltoall(
+                all_send_cnt.data(), 1, MPI_INT,
+                all_recv_cnt.data(), 1, MPI_INT,
+                MPI_COMM_WORLD
+            );
+            // flogout << "[round " << round << "] node" << world_rank << " send:";
+            // for (int i = 0; i < world_size; ++i) flogout << all_send_cnt[i] << '/' << all_send_tlt[i] << ' ';
+            // flogout << "total " << std::accumulate(all_recv_cnt.begin(), all_recv_cnt.end(), 0) << endl;
+            // flogout << "[round " << round << "] node" << world_rank << " recv:";
+            // for (const int& x : all_recv_cnt) flogout << x << ' ';
+            // flogout << "total " << std::accumulate(all_recv_cnt.begin(), all_recv_cnt.end(), 0) << endl;
+            
+            // perform scatter and gather
+            MPI_Alltoallv(
+                send_buf.data(), all_send_cnt.data(), buf_offset.data(), MPI_DTYPE,
+                recv_buf.data(), all_recv_cnt.data(), buf_offset.data(), MPI_DTYPE,
+                MPI_COMM_WORLD
+            );
+
+            
+            // dump to the corresponding segment
+            for (int i = 0; i < world_size; ++i)
+            {
+                std::ofstream foutput(seg_dir / (std::to_string(i) + ".bin"), std::ofstream::app | std::ofstream::binary);
+                if (!foutput.is_open())
+                {
+                    cerr << "node" << world_rank << " failed to open segment file";
+                    MPI_Abort(MPI_COMM_WORLD, 2);
+                }
+                foutput.write(
+                    reinterpret_cast<char*>(recv_buf.data() + i * max_seg_len),
+                    sizeof(dtype) * all_recv_cnt[i]
+                );
+                // flogout << "[round " << round << "] node" << world_rank << " dump seg" << i << " : " << all_recv_cnt[i] << endl;
+                foutput.close();
+            }
+
+            round++;
+        } while (
+            // no more data to send or recv
+            std::accumulate(all_send_cnt.begin(), all_send_cnt.end(), 0) > 0 ||
+            std::accumulate(all_recv_cnt.begin(), all_recv_cnt.end(), 0) > 0
+        );
     }
+    MPI_Barrier(MPI_COMM_WORLD);
 
     if (delete_temp && world_rank == master_rank)
     {
@@ -267,6 +342,7 @@ int main(int argc, char** argv)
     }
 
     MPI_Finalize();
+    flogout.close();
     return 0;
 }
 

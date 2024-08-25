@@ -215,7 +215,11 @@ int main(int argc, char* argv[])
             break;
     }
 
-    MPI_Alltoallv(buffer_send, counts_send, displacements_send, MPI_INT, buffer_recv, counts_recv, displacements_recv, MPI_INT, MPI_COMM_WORLD);
+    MPI_Alltoallv(
+        buffer_send, counts_send, displacements_send, MPI_INT,
+        buffer_recv, counts_recv, displacements_recv, MPI_INT,
+        MPI_COMM_WORLD
+    );
     
     printf("Values received on process %d:", my_rank);
     for(int i = 0; i < buffer_recv_length; i++)
