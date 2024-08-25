@@ -199,7 +199,7 @@ int main(int argc, char** argv)
 
         fs::path base = "data/node";
         fs::create_directories("data/output");
-        std::ofstream foutput("data/output/final.bin", std::ofstream::binary);
+        std::ofstream foutput(fs::current_path() / "oddeven_result.path", std::ofstream::binary);
         // only need one process to merge all sorted segments
         for (int i = 0; i < world_size; ++i)
         {

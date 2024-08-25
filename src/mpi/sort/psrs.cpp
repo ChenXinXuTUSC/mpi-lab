@@ -333,6 +333,52 @@ int main(int argc, char** argv)
     }
     MPI_Barrier(MPI_COMM_WORLD);
 
+    // step 7: perform kmerge file on segments
+    {
+        fs::path base = "data/node";
+        fs::path seg_dir = base / std::to_string(world_rank) / "seg";
+        if (!fs::exists(seg_dir) || !fs::is_directory(seg_dir))
+        {
+            cerr << "node" << world_rank << " not found segment dir" << endl;
+            MPI_Abort(MPI_COMM_WORLD, -1);
+        }
+
+        std::vector<std::string> input_file_list;
+        for (const auto& entry : fs::directory_iterator(seg_dir)) {
+            if (fs::is_regular_file(entry.status())) {
+                // cout << "node" << world_rank << " segment: " << entry.path() << endl;
+                input_file_list.emplace_back(entry.path().c_str());
+            }
+        }
+        fs::path output_file_path = base / "sorted.bin";
+        kmerge_file<dtype>(input_file_list, output_file_path.c_str());
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // step 8: master node gathers all sorted segments
+    if (world_rank == master_rank)
+    {
+        fs::path base = "data/node";
+        if (!fs::exists(base) || !fs::is_directory(base))
+        {
+            cerr << "master" << world_rank << " not found base dir" << endl;
+            MPI_Abort(MPI_COMM_WORLD, -1);
+        }
+        std::vector<std::string> input_file_list;
+        for (int i = 0; i < world_size; ++i)
+        {
+            fs::path seg_sorted_path = base / std::to_string(i) / "sorted.bin";
+            if (!fs::exists(seg_sorted_path))
+            {
+                cerr << "master" << world_rank << " not found sorted segment " << i << endl;
+                MPI_Abort(MPI_COMM_WORLD, -1);
+            }
+            input_file_list.emplace_back(seg_sorted_path.c_str());
+        }
+        fs::path output_file_path = fs::current_path() / "psrs_result.bin";
+        kmerge_file<dtype>(input_file_list, output_file_path.c_str());
+    }
+
     if (delete_temp && world_rank == master_rank)
     {
         clean_up({
