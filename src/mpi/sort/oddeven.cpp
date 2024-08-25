@@ -86,6 +86,8 @@ int main(int argc, char** argv)
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
+    auto start = std::chrono::high_resolution_clock::now();
+
     // step1: distribute data to all nodes
     scatter_data(bin_data_path, "recv.bin", master_rank);
     MPI_Barrier(MPI_COMM_WORLD); // end of data distribution
@@ -224,6 +226,10 @@ int main(int argc, char** argv)
         foutput.close();
     }
 
+    auto end = std::chrono::high_resolution_clock::now();
+
+    if (world_rank == master_rank)
+        cout << "time elapsed " << std::chrono::duration<double>(end - start).count() << "s" << endl;
 
     if (delete_temp && world_rank == master_rank)
     {

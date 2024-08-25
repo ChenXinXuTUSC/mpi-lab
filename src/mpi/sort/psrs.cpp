@@ -86,6 +86,9 @@ int main(int argc, char** argv)
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
+    auto start = std::chrono::high_resolution_clock::now();
+
+
     fs::path log_path = fs::path("log") / "node" / std::to_string(world_rank) / "run.log";
     fs::create_directories(log_path.parent_path());
     std::ofstream flogout(log_path, std::ofstream::trunc);
@@ -378,6 +381,11 @@ int main(int argc, char** argv)
         fs::path output_file_path = fs::current_path() / "psrs_result.bin";
         kmerge_file<dtype>(input_file_list, output_file_path.c_str());
     }
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    if (world_rank == master_rank)
+        cout << "time elapsed " << std::chrono::duration<double>(end - start).count() << "s" << endl;
 
     if (delete_temp && world_rank == master_rank)
     {
