@@ -8,8 +8,8 @@ bool use_exp_K = false; // 2^10
 bool use_exp_M = false; // 2^20
 bool use_exp_G = false; // 2^30
 
-unsigned int num = 0;
-unsigned int epl = 0;
+unsigned long num = 0;
+unsigned long epl = 0;
 
 #ifdef USE_INT
     typedef int dtype;
@@ -86,7 +86,7 @@ int main(int argc, char** argv)
     }
 
     char filename[128];
-    sprintf(filename, "%s%d%s.bin", dtype_str, num, exp_str);
+    sprintf(filename, "%s%ld%s.bin", dtype_str, num, exp_str);
     printf("will write to %s\n", filename);
 
     FILE* fp = fopen(filename, "wb");
@@ -97,7 +97,7 @@ int main(int argc, char** argv)
     }
 
     dtype data = (dtype)rand() / (dtype)RAND_MAX;
-    for (size_t i = 0; i < (size_t)(num * epl); ++i)
+    for (size_t i = 0; i < num * epl; ++i)
     {
         data = random_data(data);
         size_t tx_cnt = fwrite(&data, sizeof(dtype), 1, fp);
