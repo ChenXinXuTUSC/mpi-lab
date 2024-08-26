@@ -23,6 +23,9 @@ int buf_size = 0;
 char* bin_data_path = nullptr;
 bool delete_temp = false;
 
+char processor_name[MPI_MAX_PROCESSOR_NAME];
+int processor_name_len;
+
 int world_size;
 int world_rank;
 int master_rank = 0;
@@ -85,9 +88,9 @@ int main(int argc, char** argv)
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    MPI_Get_processor_name(processor_name, &processor_name_len);
 
-    auto start = std::chrono::high_resolution_clock::now();
-
+    auto t1 = std::chrono::high_resolution_clock::now();
 
     fs::path log_path = fs::path("log") / "node" / std::to_string(world_rank) / "run.log";
     fs::create_directories(log_path.parent_path());
@@ -102,7 +105,10 @@ int main(int argc, char** argv)
     scatter_data(bin_data_path, "recv.bin", master_rank);
     MPI_Barrier(MPI_COMM_WORLD); // end of data distribution
 
-
+    auto t2 = std::chrono::high_resolution_clock::now();
+    if (world_rank == master_rank)
+        cout << "stage1 elapsed " << std::chrono::duration<double>(t2 - t1).count() << "s" << endl;
+    
     // step2: each proc sort its segment
     internal_sort("recv.bin", "sorted.bin", buf_size);
     MPI_Barrier(MPI_COMM_WORLD); // end of data each node file sort
@@ -382,10 +388,9 @@ int main(int argc, char** argv)
         kmerge_file<dtype>(input_file_list, output_file_path.c_str());
     }
 
-    auto end = std::chrono::high_resolution_clock::now();
-
+    auto t3 = std::chrono::high_resolution_clock::now();
     if (world_rank == master_rank)
-        cout << "time elapsed " << std::chrono::duration<double>(end - start).count() << "s" << endl;
+        cout << "stage2 elapsed " << std::chrono::duration<double>(t3 - t2).count() << "s" << endl;
 
     if (delete_temp && world_rank == master_rank)
     {

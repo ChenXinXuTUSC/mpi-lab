@@ -23,6 +23,9 @@ int buf_size = 0;
 char* bin_data_path = nullptr;
 bool delete_temp = false;
 
+char processor_name[MPI_MAX_PROCESSOR_NAME];
+int processor_name_len;
+
 int world_size;
 int world_rank;
 int master_rank = 0;
@@ -76,6 +79,11 @@ void internal_sort(
     const int& buf_size
 );
 
+void gather_file(
+    const char* common_path,
+    const int& gather_rank
+);
+
 int main(int argc, char** argv)
 {
     parse_args(argc, argv, "Df:b:", &args_handler);
@@ -85,17 +93,33 @@ int main(int argc, char** argv)
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    MPI_Get_processor_name(processor_name, &processor_name_len);
 
-    auto start = std::chrono::high_resolution_clock::now();
+    timer timer_io;
+    timer timer_ex;
+
+    fs::path log_path = fs::path("log") / "node" / std::to_string(world_rank) / "run.log";
+    fs::create_directories(log_path.parent_path());
+    std::ofstream flogout(log_path, std::ofstream::trunc);
+    if (!flogout.is_open())
+    {
+        cerr << "node" << world_rank << " failed to open log file" << endl;
+        MPI_Abort(MPI_COMM_WORLD, -1);
+    }
+
 
     // step1: distribute data to all nodes
+    timer_io.tick();
     scatter_data(bin_data_path, "recv.bin", master_rank);
     MPI_Barrier(MPI_COMM_WORLD); // end of data distribution
+    timer_io.tock("data distribution");
 
 
     // step2: each proc sort its segment
+    timer_ex.tick();
     internal_sort("recv.bin", "sorted.bin", buf_size);
     MPI_Barrier(MPI_COMM_WORLD); // end of data each node file sort
+    timer_ex.tock("segment internal sort");
 
     // step3: segment prepare finish, now start odd even sort algorithm
     {
@@ -146,6 +170,7 @@ int main(int argc, char** argv)
             int tx_ttl = 0;
             int rx_ttl = 0;
             // start data exchange
+            timer_io.tick();
             MPI_Status status;
             do {
                 if (finput.is_open())
@@ -165,8 +190,10 @@ int main(int argc, char** argv)
                 foutput.write(reinterpret_cast<char*>(rx_buf.data()), sizeof(dtype) * rx_cnt);
             } while (tx_cnt == buf_size || rx_cnt == buf_size);
             foutput.close();
+            timer_io.tock("oddeven phase data exchange");
 
             // start external merge
+            timer_ex.tick();
             std::vector<std::string> input_file_list {
                 input_self_path.c_str(),
                 output_partner_path.c_str()
@@ -174,6 +201,7 @@ int main(int argc, char** argv)
             fs::path merge_path = base / std::to_string(world_rank) / "merge.bin";
             kmerge_file<dtype>(input_file_list, merge_path.c_str());
             std::filesystem::rename(merge_path, input_self_path); // replace the original "sorted.bin"
+            timer_ex.tock("merge partner segment");
 
             // truncate corresponding part of each node
             {
@@ -197,12 +225,17 @@ int main(int argc, char** argv)
 
     if (world_rank == master_rank)
     {
-        std::vector<int> in_buf(buf_size);
-
-        fs::path base = "data/node";
-        fs::create_directories("data/output");
         std::ofstream foutput(fs::current_path() / "oddeven_result.path", std::ofstream::binary);
+        if (!foutput.is_open())
+        {
+            cerr << "master node failed to create final result file" << endl;
+            exit(-1);
+        }
+
+        std::vector<int> in_buf(buf_size);
+        fs::path base = "data/node";
         // only need one process to merge all sorted segments
+        timer_ex.tick();
         for (int i = 0; i < world_size; ++i)
         {
             fs::path input_path = base / std::to_string(i) / "sorted.bin";
@@ -224,12 +257,31 @@ int main(int argc, char** argv)
             finput.close();
         }
         foutput.close();
+        timer_ex.tock("master merge all sorted segments");
     }
 
-    auto end = std::chrono::high_resolution_clock::now();
-
     if (world_rank == master_rank)
-        cout << "time elapsed " << std::chrono::duration<double>(end - start).count() << "s" << endl;
+    {
+        // output time count statistic
+        auto io_duration_list = timer_io.get_duration_list();
+        auto io_caption_list = timer_io.get_caption_lits();
+        flogout << "[io stages]" << endl;
+        for (int i = 0; i < io_duration_list.size(); ++i)
+        {
+            flogout << io_duration_list[i] << 's';
+            flogout << " // " << io_caption_list[i] << endl;
+        }
+
+        auto ex_duration_list = timer_ex.get_duration_list();
+        auto ex_caption_list = timer_ex.get_caption_lits();
+        flogout << "[ex stages]" << endl;
+        for (int i = 0; i < ex_duration_list.size(); ++i)
+        {
+            flogout << ex_duration_list[i] << 's';
+            flogout << " // " << ex_caption_list[i] << endl;
+        }
+    }
+
 
     if (delete_temp && world_rank == master_rank)
     {
@@ -318,4 +370,65 @@ void internal_sort(
     fs::path output_path = base_path / node_path / output_name;
 
     sort_file<dtype>(input_path.c_str(), output_path.c_str(), buf_size, world_rank);
+}
+
+void gather_file(
+    const char* base,
+    const char* file_path,
+    const int& gather_rank
+)
+{
+    // "base/<node_rank>/file_path" for every node
+    
+    int source_rank = -1;
+    int need_gather = 0;
+    int exist_file = 0;
+    std::vector<int> exist_mask(world_size);
+    fs::path input_path = fs::path(base) / std::to_string(world_rank) / file_path;
+
+    std::vector<dtype> send_buf(buf_size);
+    std::vector<dtype> recv_buf(buf_size);
+
+    for (int i = 0; i < world_size; ++i)
+    {
+        // not known whether there is file need to be synchronized or not yet
+        source_rank = -1;
+        need_gather = 0;
+
+        std::ifstream finput(input_path, std::ifstream::binary);
+        std::fill(exist_mask.begin(), exist_mask.end(), 0);
+        exist_file = (int)(finput.is_open());
+        need_gather = (int)(gather_rank && !finput.is_open());
+        
+        // gather node tell all other nodes whether there is need for gather
+        MPI_Bcast(&need_gather, 1, MPI_CXX_BOOL, gather_rank, MPI_COMM_WORLD);
+
+        // every node must be informed who has the data
+        if (need_gather)
+        {
+            // gather node doesn't have this one, need to gather
+            MPI_Allgather(
+                &exist_file, 1, MPI_INT,
+                exist_mask.data(), 1, MPI_INT,
+                MPI_COMM_WORLD
+            );
+            for (int i = 0; i < world_rank; ++i)
+                if (exist_mask[i] > 0) source_rank = i;
+            
+            if (world_rank == source_rank)
+            {
+                // send
+                int send_cnt = 0;
+
+            }
+            if (world_rank == gather_rank)
+            {
+                // recv
+            }
+
+        }
+
+        finput.close();
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
 }

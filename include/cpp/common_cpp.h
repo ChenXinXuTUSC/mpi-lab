@@ -182,4 +182,45 @@ void c_truncate(
 );
 
 
+class timer
+{
+    typedef std::chrono::_V2::system_clock::time_point timestamp;
+
+public:
+    void tick()
+    {
+        t1 = std::chrono::high_resolution_clock::now();
+    }
+    void tock(std::string caption = "no caption")
+    {
+        t2 = std::chrono::high_resolution_clock::now();
+        duration_list.emplace_back(std::chrono::duration<double>(t2 - t1).count());
+        t1 = t2;
+
+        caption_list.emplace_back(caption);
+    }
+
+    std::vector<double> get_duration_list() const
+    {
+        return duration_list;
+    }
+
+    std::vector<std::string> get_caption_lits() const
+    {
+        return caption_list;
+    }
+
+    double total_count() const
+    {
+        return std::accumulate(duration_list.begin(), duration_list.end(), 0.0);
+    }
+
+private:
+    timestamp t1;
+    timestamp t2;
+
+    std::vector<double> duration_list;
+    std::vector<std::string> caption_list;
+};
+
 #endif

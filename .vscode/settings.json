@@ -64,7 +64,11 @@
         "iomanip": "cpp",
         "sstream": "cpp",
         "stdbool.h": "c",
-        "limits.h": "c"
+        "limits.h": "c",
+        "filesystem": "cpp",
+        "map": "cpp",
+        "optional": "cpp",
+        "cinttypes": "cpp"
     },
     "cmake.configureOnOpen": true,
     "cmake.setBuildTypeOnMultiConfig": true,
