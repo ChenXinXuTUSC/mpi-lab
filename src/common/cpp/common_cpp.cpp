@@ -49,33 +49,42 @@ void c_truncate(
 ) {
     if (buffsz <= 0 || typesz <= 0)
     {
-        fprintf(stderr, "invalid arguments buffsz=%d, typesz=%d\n", buffsz, typesz);
+        printf("invalid arguments buffsz=%d, typesz=%d\n", buffsz, typesz);
         exit(-1);
     }
 
     FILE* rx_ptr = fopen(file_path, "r+");
     if (rx_ptr == NULL)
     {
-        fprintf(stderr, "failed to open file %s\n", file_path);
+        printf("failed to open file %s\n", file_path);
         exit(1);
     }
 
     FILE* tx_ptr = fopen(file_path, "r+");
     if (tx_ptr == NULL)
     {
-        fprintf(stderr, "failed to open file %s\n", file_path);
+        printf("failed to open file %s\n", file_path);
         exit(1);
     }
 
     char* buf = (char*)malloc(typesz * buffsz);
     if (buf == NULL)
     {
-        fprintf(stderr, "failed to allocate buffer with size %d\n", buffsz);
+        printf("failed to allocate buffer with size %d\n", buffsz);
         exit(3);
     }
 
-    if (fseek(rx_ptr, offset * typesz, SEEK_SET)) exit(1);
-    if (fseek(tx_ptr, 0, SEEK_SET)) exit(1);
+    if (fseek(rx_ptr, (long)offset * (long)typesz, SEEK_SET))
+    {
+        perror("failed to fseek rx_ptr");
+        printf("fseek %d * %d\n", offset, typesz);
+        exit(1);
+    }
+    if (fseek(tx_ptr, 0, SEEK_SET))
+    {
+        perror("failed to fseek tx_ptr");
+        exit(1);
+    }
 
     int movect = 0;
     int rx_cnt = 0;
@@ -89,9 +98,10 @@ void c_truncate(
 
 
     fseek(tx_ptr, 0, SEEK_SET);
-    if (ftruncate(fileno(tx_ptr), movect * typesz) != 0)
+    if (ftruncate(fileno(tx_ptr), (long)movect * long(typesz)) != 0)
     {
-        fprintf(stderr, "failed to truncate result file\n");
+        perror("failed to truncate result file");
+        printf("offset %d * %d\n", movect, typesz);
         exit(2);
     }
 
