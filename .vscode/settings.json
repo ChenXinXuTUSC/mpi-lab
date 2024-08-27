@@ -68,7 +68,11 @@
         "filesystem": "cpp",
         "map": "cpp",
         "optional": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "cstring": "cpp",
+        "bitset": "cpp",
+        "complex": "cpp",
+        "thread": "cpp"
     },
     "cmake.configureOnOpen": true,
     "cmake.setBuildTypeOnMultiConfig": true,

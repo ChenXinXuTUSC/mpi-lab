@@ -226,11 +226,11 @@ int main(int argc, char** argv)
 
         // prepare read head for each segment
         std::vector<std::shared_ptr<std::ifstream>> read_headp_list;
-        std::vector<int> all_send_tlt(world_size);
+        std::vector<unsigned int> all_send_tlt(world_size);
         int pivot_idx = 0;
         dtype hold;
-        int recv_cnt = 0;
-        int recv_tlt = 0;
+        size_t recv_cnt = 0;
+        size_t recv_tlt = 0;
         do {
             finput.read(reinterpret_cast<char*>(&hold), sizeof(dtype) * 1);
             recv_cnt = finput.gcount() / sizeof(dtype);
@@ -260,14 +260,14 @@ int main(int argc, char** argv)
 
 
         // broadcast the total receive amount to each node
-        std::vector<int> all_recv_tlt(world_size);
+        std::vector<unsigned int> all_recv_tlt(world_size);
         MPI_Alltoall(
             all_send_tlt.data(), 1, MPI_INT,
             all_recv_tlt.data(), 1, MPI_INT,
             MPI_COMM_WORLD
         );
 
-        int max_seg_len = buf_size / world_size;
+        unsigned int max_seg_len = buf_size / world_size;
         std::vector<dtype> send_buf(buf_size);
         std::vector<dtype> recv_buf(buf_size);
         std::vector<int> all_send_cnt(world_size);
@@ -372,11 +372,11 @@ int main(int argc, char** argv)
             }
         }
 
-        flogout << "segment sort size:" << endl;
-        flogout << "B="<< file_size_total << endl;
-        flogout << "KB="<< file_size_total / (size_t)pow(2, 10) << endl;
-        flogout << "MB="<< file_size_total / (size_t)pow(2, 20) << endl;
-        flogout << "GB="<< file_size_total / (size_t)pow(2, 30) << endl;
+        // flogout << "segment sort size:" << endl;
+        // flogout << "B="<< file_size_total << endl;
+        // flogout << "KB="<< file_size_total / (size_t)pow(2, 10) << endl;
+        // flogout << "MB="<< file_size_total / (size_t)pow(2, 20) << endl;
+        // flogout << "GB="<< file_size_total / (size_t)pow(2, 30) << endl;
 
         fs::path output_file_path = base / "sorted.bin";
         kmerge_file<dtype>(input_file_list, output_file_path.c_str());
