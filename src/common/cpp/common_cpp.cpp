@@ -49,7 +49,7 @@ void c_truncate(
 ) {
     if (buffsz <= 0 || typesz <= 0)
     {
-        printf("invalid arguments buffsz=%d, typesz=%d\n", buffsz, typesz);
+        printf("invalid arguments buffsz=%ld, typesz=%ld\n", buffsz, typesz);
         exit(-1);
     }
 
@@ -70,14 +70,14 @@ void c_truncate(
     char* buf = (char*)malloc(typesz * buffsz);
     if (buf == NULL)
     {
-        printf("failed to allocate buffer with size %d\n", buffsz);
+        printf("failed to allocate buffer with size %ld\n", buffsz);
         exit(3);
     }
 
     if (fseek(rx_ptr, (long)offset * (long)typesz, SEEK_SET))
     {
         perror("failed to fseek rx_ptr");
-        printf("fseek %d * %d\n", offset, typesz);
+        printf("fseek %ld * %ld\n", offset, typesz);
         exit(1);
     }
     if (fseek(tx_ptr, 0, SEEK_SET))
@@ -86,8 +86,8 @@ void c_truncate(
         exit(1);
     }
 
-    int movect = 0;
-    int rx_cnt = 0;
+    size_t movect = 0;
+    size_t rx_cnt = 0;
     do {
         rx_cnt = fread(buf, typesz, min(buffsz, movesz - movect), rx_ptr);
         // printf("%s\n", buf);
@@ -101,7 +101,7 @@ void c_truncate(
     if (ftruncate(fileno(tx_ptr), (long)movect * long(typesz)) != 0)
     {
         perror("failed to truncate result file");
-        printf("offset %d * %d\n", movect, typesz);
+        printf("offset %ld * %ld\n", movect, typesz);
         exit(2);
     }
 
