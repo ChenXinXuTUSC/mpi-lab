@@ -176,10 +176,10 @@ void sort_file(
 
 void c_truncate(
     const char* file_path,
-    const int typesz,
-    const int offset,
-    const int movesz,
-    const int buffsz
+    const size_t typesz,
+    const size_t offset,
+    const size_t movesz,
+    const size_t buffsz
 );
 
 

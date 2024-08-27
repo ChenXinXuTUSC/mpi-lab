@@ -1,12 +1,18 @@
 #include <common_c.h>
 
 char* file_path;
-int offset;
-int movesz;
-int buffsz;
-int typesz;
+unsigned long offset;
+unsigned long movesz;
+unsigned long buffsz;
+unsigned long typesz;
 
-void c_truncate(const char* file_path, const int offset, const int movesz, const int buffsz, const int typesz);
+void c_truncate(
+    const char* file_path,
+    const unsigned long offset,
+    const unsigned long movesz,
+    const unsigned long buffsz,
+    const unsigned long typesz
+);
 
 void args_handler(
     const int opt,
@@ -63,8 +69,13 @@ int main(int argc, char** argv)
     return 0;
 }
 
-void c_truncate(const char* file_path, const int offset, const int movesz, const int buffsz, const int typesz)
-{
+void c_truncate(
+    const char* file_path,
+    const unsigned long offset,
+    const unsigned long movesz,
+    const unsigned long buffsz,
+    const unsigned long typesz
+) {
     if (buffsz <= 0 || typesz <= 0)
     {
         printf("invalid arguments buffsz=%d, typesz=%d\n", buffsz, typesz);

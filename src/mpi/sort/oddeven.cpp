@@ -170,8 +170,8 @@ int main(int argc, char** argv)
 
 
             // record the send and recv data amount
-            int tx_ttl = 0;
-            int rx_ttl = 0;
+            size_t tx_ttl = 0;
+            size_t rx_ttl = 0;
             // start data exchange
             timer_io.tick();
             MPI_Status status;
@@ -188,7 +188,7 @@ int main(int argc, char** argv)
                     rx_buf.data(), buf_size, MPI_DTYPE, partner_rank, 0, // receive from partner
                     MPI_COMM_WORLD, &status
                 );
-                MPI_Get_count(&status, MPI_INT, &rx_cnt);
+                MPI_Get_count(&status, MPI_UNSIGNED_LONG, &rx_cnt);
                 rx_ttl += rx_cnt;
                 foutput.write(reinterpret_cast<char*>(rx_buf.data()), sizeof(dtype) * rx_cnt);
             } while (tx_cnt == buf_size || rx_cnt == buf_size);
