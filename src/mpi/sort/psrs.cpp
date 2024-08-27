@@ -353,6 +353,8 @@ int main(int argc, char** argv)
     // step 7: perform kmerge file on segments
     timer_ex.tick();
     {
+        size_t file_size_total = 0;
+
         fs::path base = "data/node";
         fs::path seg_dir = base / std::to_string(world_rank) / "seg";
         if (!fs::exists(seg_dir) || !fs::is_directory(seg_dir))
@@ -366,8 +368,16 @@ int main(int argc, char** argv)
             if (fs::is_regular_file(entry.status())) {
                 // cout << "node" << world_rank << " segment: " << entry.path() << endl;
                 input_file_list.emplace_back(entry.path().c_str());
+                file_size_total += fs::file_size(entry.path());
             }
         }
+
+        flogout << "segment sort size:" << endl;
+        flogout << "B="<< file_size_total << endl;
+        flogout << "KB="<< file_size_total / (size_t)pow(2, 10) << endl;
+        flogout << "MB="<< file_size_total / (size_t)pow(2, 20) << endl;
+        flogout << "GB="<< file_size_total / (size_t)pow(2, 30) << endl;
+
         fs::path output_file_path = base / "sorted.bin";
         kmerge_file<dtype>(input_file_list, output_file_path.c_str());
     }

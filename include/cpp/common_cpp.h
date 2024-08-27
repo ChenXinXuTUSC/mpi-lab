@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <random>
+#include <cmath>
 #include <ctime>
 
 #include <functional>

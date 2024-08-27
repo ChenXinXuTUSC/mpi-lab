@@ -78,7 +78,7 @@ void c_truncate(
 ) {
     if (buffsz <= 0 || typesz <= 0)
     {
-        printf("invalid arguments buffsz=%d, typesz=%d\n", buffsz, typesz);
+        printf("invalid arguments buffsz=%ld, typesz=%ld\n", buffsz, typesz);
         exit(-1);
     }
 
@@ -99,7 +99,7 @@ void c_truncate(
     char* buf = (char*)malloc(typesz * buffsz);
     if (buf == NULL)
     {
-        printf("failed to allocate buffer with size %d\n", buffsz);
+        printf("failed to allocate buffer with size %ld\n", buffsz);
         exit(3);
     }
 
