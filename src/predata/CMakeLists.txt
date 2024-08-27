@@ -3,7 +3,9 @@ SET(
     txdata.c
     rxdata.c
     cxdata.c
+    rvdata.c
 )
+
 
 FOREACH(_src_file ${predata_src_list})
     GET_FILENAME_COMPONENT(_src_name ${_src_file} NAME_WE)
