@@ -90,7 +90,9 @@ int main(int argc, char** argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     MPI_Get_processor_name(processor_name, &processor_name_len);
 
-    auto t1 = std::chrono::high_resolution_clock::now();
+    timer timer_io("node" + std::to_string(world_rank) + " io", true); // input & output time
+    timer timer_ex("node" + std::to_string(world_rank) + " ex", true); // sort execution time
+    timer timer_st("node" + std::to_string(world_rank) + " st", true); // stage time
 
     fs::path log_path = fs::path("log") / "node" / std::to_string(world_rank) / "run.log";
     fs::create_directories(log_path.parent_path());
@@ -102,18 +104,19 @@ int main(int argc, char** argv)
     }
 
     // step1: distribute data to all nodes
+    timer_io.tick();
     scatter_data(bin_data_path, "recv.bin", master_rank);
     MPI_Barrier(MPI_COMM_WORLD); // end of data distribution
-
-    auto t2 = std::chrono::high_resolution_clock::now();
-    if (world_rank == master_rank)
-        cout << "stage1 elapsed " << std::chrono::duration<double>(t2 - t1).count() << "s" << endl;
+    timer_io.tock("data distribution");
     
     // step2: each proc sort its segment
+    timer_ex.tick();
     internal_sort("recv.bin", "sorted.bin", buf_size);
     MPI_Barrier(MPI_COMM_WORLD); // end of data each node file sort
+    timer_ex.tock("segment internal sort");
 
     // step3: each node perform regular sampling
+    timer_st.tick();
     std::vector<dtype> sample_list;
     {
         int send_cnt = 0; // record each node's send count
@@ -138,10 +141,12 @@ int main(int argc, char** argv)
         }
         finput.close();
     }
+    timer_st.tock("regular sampling");
     MPI_Barrier(MPI_COMM_WORLD); // end of regular sampling
 
     // step4: master gather all node's sample result
     std::vector<dtype> all_sample;
+    timer_io.tick();
     {
         int send_cnt = sample_list.size();
 
@@ -189,6 +194,7 @@ int main(int argc, char** argv)
         // for (const dtype& dd : all_sample) cout << dd << ' ';
         // cout << endl;
     }
+    timer_io.tock("exchange reguler pivot");
 
     // step 5: broadcast pivot to every node
     std::vector<dtype> pivot_list;
@@ -206,6 +212,7 @@ int main(int argc, char** argv)
 
 
     // step6: each node send corresponding segment to other corresponding nodes
+    timer_io.tick();
     {
         fs::path base = "data/node";
 
@@ -340,9 +347,11 @@ int main(int argc, char** argv)
             std::accumulate(all_recv_cnt.begin(), all_recv_cnt.end(), 0) > 0
         );
     }
+    timer_io.tock("MPI_Alltoallv exchange segments");
     MPI_Barrier(MPI_COMM_WORLD);
 
     // step 7: perform kmerge file on segments
+    timer_ex.tick();
     {
         fs::path base = "data/node";
         fs::path seg_dir = base / std::to_string(world_rank) / "seg";
@@ -362,36 +371,34 @@ int main(int argc, char** argv)
         fs::path output_file_path = base / "sorted.bin";
         kmerge_file<dtype>(input_file_list, output_file_path.c_str());
     }
+    timer_ex.tock("pivoted segment internal sort");
     MPI_Barrier(MPI_COMM_WORLD);
 
     // step 8: master node gathers all sorted segments
-    if (world_rank == master_rank)
-    {
-        fs::path base = "data/node";
-        if (!fs::exists(base) || !fs::is_directory(base))
-        {
-            cerr << "master" << world_rank << " not found base dir" << endl;
-            MPI_Abort(MPI_COMM_WORLD, -1);
-        }
-        std::vector<std::string> input_file_list;
-        for (int i = 0; i < world_size; ++i)
-        {
-            fs::path seg_sorted_path = base / std::to_string(i) / "sorted.bin";
-            if (!fs::exists(seg_sorted_path))
-            {
-                cerr << "master" << world_rank << " not found sorted segment " << i << endl;
-                MPI_Abort(MPI_COMM_WORLD, -1);
-            }
-            input_file_list.emplace_back(seg_sorted_path.c_str());
-        }
-        fs::path output_file_path = fs::current_path() / "psrs_result.bin";
-        kmerge_file<dtype>(input_file_list, output_file_path.c_str());
-    }
-
-    auto t3 = std::chrono::high_resolution_clock::now();
-    if (world_rank == master_rank)
-        cout << "stage2 elapsed " << std::chrono::duration<double>(t3 - t2).count() << "s" << endl;
-
+    // if (world_rank == master_rank)
+    // {
+    //     timer_io.tick();
+    //     fs::path base = "data/node";
+    //     if (!fs::exists(base) || !fs::is_directory(base))
+    //     {
+    //         cerr << "master" << world_rank << " not found base dir" << endl;
+    //         MPI_Abort(MPI_COMM_WORLD, -1);
+    //     }
+    //     std::vector<std::string> input_file_list;
+    //     for (int i = 0; i < world_size; ++i)
+    //     {
+    //         fs::path seg_sorted_path = base / std::to_string(i) / "sorted.bin";
+    //         if (!fs::exists(seg_sorted_path))
+    //         {
+    //             cerr << "master" << world_rank << " not found sorted segment " << i << endl;
+    //             MPI_Abort(MPI_COMM_WORLD, -1);
+    //         }
+    //         input_file_list.emplace_back(seg_sorted_path.c_str());
+    //     }
+    //     fs::path output_file_path = fs::current_path() / "psrs_result.bin";
+    //     kmerge_file<dtype>(input_file_list, output_file_path.c_str());
+    //     timer_io.tock("master gather all sorted segments");
+    // }
     if (delete_temp && world_rank == master_rank)
     {
         clean_up({

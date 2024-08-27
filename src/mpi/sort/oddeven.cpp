@@ -228,42 +228,42 @@ int main(int argc, char** argv)
     MPI_Barrier(MPI_COMM_WORLD);
 
 
-    if (world_rank == master_rank)
-    {
-        std::ofstream foutput(fs::current_path() / "oddeven_result.path", std::ofstream::binary);
-        if (!foutput.is_open())
-        {
-            cerr << "master node failed to create final result file" << endl;
-            exit(-1);
-        }
+    // if (world_rank == master_rank)
+    // {
+    //     std::ofstream foutput(fs::current_path() / "oddeven_result.path", std::ofstream::binary);
+    //     if (!foutput.is_open())
+    //     {
+    //         cerr << "master node failed to create final result file" << endl;
+    //         exit(-1);
+    //     }
 
-        std::vector<int> in_buf(buf_size);
-        fs::path base = "data/node";
-        // only need one process to merge all sorted segments
-        timer_ex.tick();
-        for (int i = 0; i < world_size; ++i)
-        {
-            fs::path input_path = base / std::to_string(i) / "sorted.bin";
-            std::ifstream finput(input_path, std::ifstream::binary);
-            if (!finput.is_open())
-            {
-                cerr << "master failed to open reduce seg " << input_path << endl; 
-                exit(1);
-            }
+    //     std::vector<int> in_buf(buf_size);
+    //     fs::path base = "data/node";
+    //     // only need one process to merge all sorted segments
+    //     timer_ex.tick();
+    //     for (int i = 0; i < world_size; ++i)
+    //     {
+    //         fs::path input_path = base / std::to_string(i) / "sorted.bin";
+    //         std::ifstream finput(input_path, std::ifstream::binary);
+    //         if (!finput.is_open())
+    //         {
+    //             cerr << "master failed to open reduce seg " << input_path << endl; 
+    //             exit(1);
+    //         }
 
-            int in_cnt = 0;
-            int in_ttl = 0;
-            do {
-                finput.read(reinterpret_cast<char*>(in_buf.data()), sizeof(dtype) * buf_size);
-                in_cnt = finput.gcount() / sizeof(dtype);
-                in_ttl += in_cnt;
-                foutput.write(reinterpret_cast<char*>(in_buf.data()), sizeof(dtype) * in_cnt);
-            } while (in_cnt == buf_size);
-            finput.close();
-        }
-        foutput.close();
-        timer_ex.tock("master merge all sorted segments");
-    }
+    //         int in_cnt = 0;
+    //         int in_ttl = 0;
+    //         do {
+    //             finput.read(reinterpret_cast<char*>(in_buf.data()), sizeof(dtype) * buf_size);
+    //             in_cnt = finput.gcount() / sizeof(dtype);
+    //             in_ttl += in_cnt;
+    //             foutput.write(reinterpret_cast<char*>(in_buf.data()), sizeof(dtype) * in_cnt);
+    //         } while (in_cnt == buf_size);
+    //         finput.close();
+    //     }
+    //     foutput.close();
+    //     timer_ex.tock("master merge all sorted segments");
+    // }
 
     if (world_rank == master_rank)
     {
