@@ -399,6 +399,38 @@ int main(int argc, char** argv)
     //     kmerge_file<dtype>(input_file_list, output_file_path.c_str());
     //     timer_io.tock("master gather all sorted segments");
     // }
+
+    if (world_rank == master_rank)
+    {
+        // output time count statistic
+        auto io_duration_list = timer_io.get_duration_list();
+        auto io_caption_list = timer_io.get_caption_lits();
+        double io_total = timer_io.total_count();
+        flogout << "[io stages]" << endl;
+        for (int i = 0; i < io_duration_list.size(); ++i)
+        {
+            flogout << std::fixed << std::setprecision(2);
+            flogout << std::setw(10) << io_duration_list[i] / io_total * 100.0 << '%';
+            flogout.unsetf(std::ios::fixed);
+            flogout << std::setw(10) << io_duration_list[i] << 's';
+            flogout << " " << io_caption_list[i] << endl;
+        }
+
+        auto ex_duration_list = timer_ex.get_duration_list();
+        auto ex_caption_list = timer_ex.get_caption_lits();
+        double ex_total = timer_ex.total_count();
+        flogout << "[ex stages]" << endl;
+        for (int i = 0; i < ex_duration_list.size(); ++i)
+        {
+            flogout << std::fixed << std::setprecision(2);
+            flogout << std::setw(10) << ex_duration_list[i] / ex_total * 100.0 << '%';
+            flogout.unsetf(std::ios::fixed);
+            flogout << std::setw(10) << ex_duration_list[i] << 's';
+            flogout << " "<< ex_caption_list[i] << endl;
+        }
+    }
+
+
     if (delete_temp && world_rank == master_rank)
     {
         clean_up({
@@ -406,6 +438,7 @@ int main(int argc, char** argv)
             "data/temp"
         });
     }
+
 
     MPI_Finalize();
     flogout.close();
