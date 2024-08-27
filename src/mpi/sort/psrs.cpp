@@ -405,7 +405,6 @@ int main(int argc, char** argv)
     return 0;
 }
 
-
 void scatter_data(
     const char* input_path,
     const char* output_name,

@@ -95,8 +95,9 @@ int main(int argc, char** argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     MPI_Get_processor_name(processor_name, &processor_name_len);
 
-    timer timer_io;
-    timer timer_ex;
+    timer timer_io("node" + std::to_string(world_rank) + " io", true); // input & output time
+    timer timer_ex("node" + std::to_string(world_rank) + " ex", true); // sort execution time
+    timer timer_st("node" + std::to_string(world_rank) + " st", true); // stage time
 
     fs::path log_path = fs::path("log") / "node" / std::to_string(world_rank) / "run.log";
     fs::create_directories(log_path.parent_path());
@@ -132,6 +133,8 @@ int main(int argc, char** argv)
 
         for (int phase = 0; phase < world_size; ++phase)
         {
+            timer_st.tick();
+
             if (world_rank % 2 == 0)
             {
                 if (phase % 2 == 0) partner_rank = world_rank + 1;
@@ -190,7 +193,7 @@ int main(int argc, char** argv)
                 foutput.write(reinterpret_cast<char*>(rx_buf.data()), sizeof(dtype) * rx_cnt);
             } while (tx_cnt == buf_size || rx_cnt == buf_size);
             foutput.close();
-            timer_io.tock("oddeven phase data exchange");
+            timer_io.tock("oddeven phase" + std::to_string(phase) + " data exchange");
 
             // start external merge
             timer_ex.tick();
@@ -201,7 +204,7 @@ int main(int argc, char** argv)
             fs::path merge_path = base / std::to_string(world_rank) / "merge.bin";
             kmerge_file<dtype>(input_file_list, merge_path.c_str());
             std::filesystem::rename(merge_path, input_self_path); // replace the original "sorted.bin"
-            timer_ex.tock("merge partner segment");
+            timer_ex.tock("oddeven phase" + std::to_string(phase) + " merge partner segment");
 
             // truncate corresponding part of each node
             {
@@ -218,6 +221,8 @@ int main(int argc, char** argv)
                     c_truncate(input_self_path.c_str(), sizeof(dtype), rx_ttl, tx_ttl, buf_size);
                 }
             }
+
+            timer_st.tock("oddeven phase" + std::to_string(phase) + " finish");
         }
     }
     MPI_Barrier(MPI_COMM_WORLD);
@@ -265,20 +270,28 @@ int main(int argc, char** argv)
         // output time count statistic
         auto io_duration_list = timer_io.get_duration_list();
         auto io_caption_list = timer_io.get_caption_lits();
+        double io_total = timer_io.total_count();
         flogout << "[io stages]" << endl;
         for (int i = 0; i < io_duration_list.size(); ++i)
         {
-            flogout << io_duration_list[i] << 's';
-            flogout << " // " << io_caption_list[i] << endl;
+            flogout << std::fixed << std::setprecision(2);
+            flogout << std::setw(10) << io_duration_list[i] / io_total * 100.0 << '%';
+            flogout.unsetf(std::ios::fixed);
+            flogout << std::setw(10) << io_duration_list[i] << 's';
+            flogout << " " << io_caption_list[i] << endl;
         }
 
         auto ex_duration_list = timer_ex.get_duration_list();
         auto ex_caption_list = timer_ex.get_caption_lits();
+        double ex_total = timer_ex.total_count();
         flogout << "[ex stages]" << endl;
         for (int i = 0; i < ex_duration_list.size(); ++i)
         {
-            flogout << ex_duration_list[i] << 's';
-            flogout << " // " << ex_caption_list[i] << endl;
+            flogout << std::fixed << std::setprecision(2);
+            flogout << std::setw(10) << ex_duration_list[i] / ex_total * 100.0 << '%';
+            flogout.unsetf(std::ios::fixed);
+            flogout << std::setw(10) << ex_duration_list[i] << 's';
+            flogout << " "<< ex_caption_list[i] << endl;
         }
     }
 
@@ -294,7 +307,6 @@ int main(int argc, char** argv)
     MPI_Finalize();
     return 0;
 }
-
 
 void scatter_data(
     const char* input_path,

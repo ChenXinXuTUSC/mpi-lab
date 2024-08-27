@@ -7,6 +7,7 @@
 
 #include <stdexcept>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <filesystem>
 #include <chrono>
@@ -187,6 +188,12 @@ class timer
     typedef std::chrono::_V2::system_clock::time_point timestamp;
 
 public:
+    timer(std::string name, bool printinfo = false)
+    {
+        this->name = name;
+        this->printinfo = printinfo;
+    }
+
     void tick()
     {
         t1 = std::chrono::high_resolution_clock::now();
@@ -196,6 +203,13 @@ public:
         t2 = std::chrono::high_resolution_clock::now();
         duration_list.emplace_back(std::chrono::duration<double>(t2 - t1).count());
         t1 = t2;
+
+        if (printinfo)
+        {
+            std::cout << '[' << name << ']'
+                      << ' ' << duration_list.back() << 's' << ' '
+                      << caption << endl;
+        }
 
         caption_list.emplace_back(caption);
     }
@@ -216,6 +230,9 @@ public:
     }
 
 private:
+    std::string name;
+    bool printinfo;
+
     timestamp t1;
     timestamp t2;
 
